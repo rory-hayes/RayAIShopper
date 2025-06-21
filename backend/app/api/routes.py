@@ -21,6 +21,7 @@ from app.models.responses import (
 from app.utils.logging import get_logger
 from app.config import settings
 from app import __version__
+import os
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -275,6 +276,39 @@ async def refresh_recommendations(request: RefreshRequest):
             status_code=500, 
             detail=f"Failed to refresh recommendations: {str(e)}"
         )
+
+@router.get("/debug/data", response_model=dict)
+async def debug_data_files():
+    """Debug endpoint to check data file status"""
+    debug_info = {
+        "working_directory": os.getcwd(),
+        "styles_csv_path": settings.styles_csv_path,
+        "styles_csv_exists": os.path.exists(settings.styles_csv_path),
+        "data_dir_exists": os.path.exists(settings.data_dir),
+        "data_dir_contents": [],
+        "csv_line_count": 0,
+        "csv_first_line": None
+    }
+    
+    # Check data directory contents
+    if os.path.exists(settings.data_dir):
+        try:
+            debug_info["data_dir_contents"] = os.listdir(settings.data_dir)
+        except Exception as e:
+            debug_info["data_dir_error"] = str(e)
+    
+    # Check CSV file details
+    if os.path.exists(settings.styles_csv_path):
+        try:
+            with open(settings.styles_csv_path, 'r') as f:
+                lines = f.readlines()
+                debug_info["csv_line_count"] = len(lines)
+                if lines:
+                    debug_info["csv_first_line"] = lines[0].strip()
+        except Exception as e:
+            debug_info["csv_read_error"] = str(e)
+    
+    return debug_info
 
 # Helper functions
 async def _get_product_by_id(product_id: str):
