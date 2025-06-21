@@ -213,4 +213,4 @@ The app detects a `storeID` URL parameter for in-store usage:
 - Shows item locations within the store
 - Provides "Find in Store" instead of checkout
 
-This wizard provides a solid foundation for a production-ready fashion assistant experience, with clean code architecture that can be easily extended with AI capabilities and backend integration.
+This wizard provides a solid foundation for a production-ready fashion assistant experience, with clean code architecture that can be easily extended with AI capabilities and backend integration.# Frontend update Sat Jun 21 19:54:30 IST 2025
