@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import uuid
-from contextlib import asynccontextmanager
+import asyncio
 from app.config import settings
 from app.utils.logging import setup_logging, get_logger
 from app.models.responses import ErrorResponse
@@ -14,41 +14,44 @@ logger = get_logger(__name__)
 
 # Global service instance
 recommendation_service = None
+_service_lock = asyncio.Lock()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
+async def get_or_create_recommendation_service():
+    """Lazy initialization of recommendation service"""
     global recommendation_service
-    logger.info("🚀 Ray AI Shopper Backend starting up...")
-    logger.info(f"Environment: {settings.environment}")
-    logger.info(f"API Prefix: {settings.api_prefix}")
-    logger.info(f"Using GPT model: {settings.gpt_model}")
-    logger.info(f"Using embedding model: {settings.embedding_model}")
     
-    try:
-        from app.services.recommendation_service import RecommendationService
-        recommendation_service = RecommendationService()
+    if recommendation_service is not None:
+        return recommendation_service
+    
+    async with _service_lock:
+        # Double-check pattern
+        if recommendation_service is not None:
+            return recommendation_service
         
-        # Initialize the service
-        logger.info("Initializing recommendation service...")
-        success = await recommendation_service.initialize()
-        if not success:
-            logger.error("Failed to initialize recommendation service")
-        else:
-            logger.info("Recommendation service initialized successfully")
-            # Log service status
-            status = recommendation_service.get_service_status()
-            logger.info(f"Service status: {status}")
-    except Exception as e:
-        logger.error(f"Error initializing recommendation service: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-    
-    logger.info("Ray AI Shopper Backend started successfully")
-    yield
-    
-    # Shutdown
-    logger.info("Ray AI Shopper Backend shutting down...")
+        logger.info("Initializing recommendation service (lazy)...")
+        try:
+            from app.services.recommendation_service import RecommendationService
+            service = RecommendationService()
+            
+            # Initialize the service
+            success = await service.initialize()
+            if not success:
+                logger.error("Failed to initialize recommendation service")
+                return None
+            else:
+                logger.info("Recommendation service initialized successfully")
+                # Log service status
+                status = service.get_service_status()
+                logger.info(f"Service status: {status}")
+                
+                recommendation_service = service
+                return recommendation_service
+                
+        except Exception as e:
+            logger.error(f"Error initializing recommendation service: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
 
 # Create FastAPI app
 app = FastAPI(
@@ -56,8 +59,7 @@ app = FastAPI(
     description="AI-powered fashion recommendation service using GPT-4o mini and RAG",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    redoc_url="/redoc"
 )
 
 # Add CORS middleware
@@ -170,18 +172,23 @@ async def root():
 @app.get("/debug/service")
 async def debug_service():
     """Debug endpoint to check service status"""
-    global recommendation_service
+    service = await get_or_create_recommendation_service()
     return {
-        "service_exists": recommendation_service is not None,
-        "service_type": str(type(recommendation_service)) if recommendation_service else None,
-        "service_status": recommendation_service.get_service_status() if recommendation_service else None
+        "service_exists": service is not None,
+        "service_type": str(type(service)) if service else None,
+        "service_status": service.get_service_status() if service else None
     }
 
 # Make recommendation service available to routers
 def get_recommendation_service():
+    """Synchronous wrapper - for compatibility, but should use async version"""
     global recommendation_service
     logger.info(f"get_recommendation_service called, service is: {recommendation_service}")
     return recommendation_service
+
+async def get_recommendation_service_async():
+    """Async version that creates service if needed"""
+    return await get_or_create_recommendation_service()
 
 if __name__ == "__main__":
     import uvicorn

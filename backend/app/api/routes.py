@@ -25,9 +25,9 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 # Dependency to get recommendation service from main.py
-def get_recommendation_service():
-    from app.main import get_recommendation_service as get_service
-    service = get_service()
+async def get_recommendation_service():
+    from app.main import get_recommendation_service_async
+    service = await get_recommendation_service_async()
     if service is None:
         raise HTTPException(status_code=503, detail="Recommendation service not initialized")
     return service
