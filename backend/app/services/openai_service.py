@@ -26,6 +26,32 @@ class OpenAIService:
         )
         return response.data[0].embedding
     
+    @openai_retry
+    async def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings for a batch of texts efficiently
+        Following OpenAI cookbook approach for cost-effective embedding generation
+        """
+        if not texts:
+            return []
+        
+        try:
+            response = await self.client.embeddings.create(
+                input=texts,
+                model=settings.embedding_model
+            )
+            
+            # Extract embeddings in the same order as input
+            embeddings = [data.embedding for data in response.data]
+            logger.info(f"Generated {len(embeddings)} embeddings in batch")
+            return embeddings
+            
+        except Exception as e:
+            logger.error(f"Error generating batch embeddings: {e}")
+            # Return zero embeddings as fallback
+            zero_embedding = [0.0] * 1536  # text-embedding-3-large dimension
+            return [zero_embedding] * len(texts)
+    
     async def create_search_query_from_profile(self, user_profile: UserProfile) -> str:
         """
         Create optimized search query from user profile using GPT-4o mini

@@ -2,7 +2,7 @@ import os
 import pickle
 import csv
 import json
-import random
+import math
 from typing import List, Dict, Tuple, Optional
 from app.config import settings
 from app.utils.logging import get_logger
@@ -35,80 +35,294 @@ class VectorSearchService:
         self.metadata = None
         self.df = None
         self.products_data = []  # Fallback storage without pandas
+        self.products_with_embeddings = []  # Products with embeddings for similarity search
         self.dimension = None
         self.fallback_mode = True  # Start in fallback mode by default
+        self.openai_service = None  # Will be set when needed
         
     async def load_or_create_index(self) -> bool:
         """
-        Load existing FAISS index or create new one from embeddings
-        Falls back to CSV-only mode if heavy dependencies unavailable
+        Load existing FAISS index or create embeddings following OpenAI cookbook approach
+        Falls back to generating embeddings on-demand if FAISS unavailable
         """
         try:
-            # Check if we have the required dependencies for full functionality
-            if not (FAISS_AVAILABLE and NUMPY_AVAILABLE and PANDAS_AVAILABLE):
-                logger.warning("Heavy dependencies not available (faiss/numpy/pandas). Using lightweight fallback mode.")
-                return await self._initialize_fallback_mode()
+            # Check if we have the required dependencies for full FAISS functionality
+            if FAISS_AVAILABLE and NUMPY_AVAILABLE and PANDAS_AVAILABLE:
+                # Try to load existing FAISS index
+                if os.path.exists(settings.faiss_index_path) and os.path.exists(settings.metadata_path):
+                    logger.info("Loading existing FAISS index...")
+                    self.index = faiss.read_index(settings.faiss_index_path)
+                    
+                    with open(settings.metadata_path, 'rb') as f:
+                        self.metadata = pickle.load(f)
+                    
+                    # Load DataFrame for product details
+                    if os.path.exists(settings.embeddings_csv_path):
+                        self.df = pd.read_csv(settings.embeddings_csv_path)
+                        # Convert string embeddings back to lists
+                        self.df['embeddings'] = self.df['embeddings'].apply(eval)
+                    else:
+                        self.df = pd.read_csv(settings.styles_csv_path)
+                    
+                    self.dimension = self.index.d
+                    self.fallback_mode = False
+                    logger.info(f"Loaded FAISS index with {self.index.ntotal} vectors, dimension {self.dimension}")
+                    return True
             
-            # Try to load existing index
-            if os.path.exists(settings.faiss_index_path) and os.path.exists(settings.metadata_path):
-                logger.info("Loading existing FAISS index...")
-                self.index = faiss.read_index(settings.faiss_index_path)
-                
-                with open(settings.metadata_path, 'rb') as f:
-                    self.metadata = pickle.load(f)
-                
-                # Load DataFrame for product details
-                if os.path.exists(settings.embeddings_csv_path):
-                    self.df = pd.read_csv(settings.embeddings_csv_path)
-                    # Convert string embeddings back to lists
-                    self.df['embeddings'] = self.df['embeddings'].apply(eval)
-                else:
-                    self.df = pd.read_csv(settings.styles_csv_path)
-                
-                self.dimension = self.index.d
-                self.fallback_mode = False
-                logger.info(f"Loaded FAISS index with {self.index.ntotal} vectors, dimension {self.dimension}")
-                return True
-            else:
-                # Fallback mode - load just the CSV data
-                logger.warning("No FAISS index found. Using fallback mode with CSV data...")
-                return await self._initialize_fallback_mode()
+            # Initialize with CSV data and prepare for embedding generation
+            logger.warning("FAISS not available or no pre-generated index. Using lightweight embedding approach...")
+            return await self._initialize_embedding_mode()
                 
         except Exception as e:
             logger.error(f"Error loading FAISS index: {e}")
-            # Try fallback mode
-            return await self._initialize_fallback_mode()
+            return await self._initialize_embedding_mode()
     
-    async def _initialize_fallback_mode(self) -> bool:
+    async def _initialize_embedding_mode(self) -> bool:
         """
-        Initialize fallback mode using just CSV data without heavy dependencies
-        This allows the service to start even without pre-generated embeddings
+        Initialize with CSV data and prepare for on-demand embedding generation
+        Following the OpenAI cookbook approach
         """
         try:
+            logger.info(f"Checking for CSV file at: {settings.styles_csv_path}")
+            logger.info(f"Current working directory: {os.getcwd()}")
+            logger.info(f"Data directory exists: {os.path.exists(settings.data_dir)}")
+            
+            # Try to find and load the CSV file
+            csv_path = None
             if os.path.exists(settings.styles_csv_path):
-                logger.info("Initializing fallback mode with CSV data...")
+                csv_path = settings.styles_csv_path
+            else:
+                # Try alternative paths
+                alternative_paths = [
+                    "backend/data/sample_styles.csv",
+                    "../data/sample_styles.csv", 
+                    "./data/sample_styles.csv",
+                    "sample_styles.csv"
+                ]
                 
-                # Use pandas if available, otherwise use csv module
+                for alt_path in alternative_paths:
+                    logger.info(f"Trying alternative path: {alt_path}")
+                    if os.path.exists(alt_path):
+                        csv_path = alt_path
+                        logger.info(f"Found CSV at alternative path: {alt_path}")
+                        break
+            
+            if csv_path:
+                logger.info("Loading CSV data for embedding generation...")
+                
+                # Load CSV data
                 if PANDAS_AVAILABLE:
-                    self.df = pd.read_csv(settings.styles_csv_path)
-                    logger.info(f"Fallback mode initialized with pandas: {len(self.df)} products")
+                    self.df = pd.read_csv(csv_path)
+                    logger.info(f"Loaded {len(self.df)} products with pandas")
+                    # Convert DataFrame to list of dicts for consistency
+                    self.products_data = self.df.to_dict('records')
                 else:
                     # Load CSV manually without pandas
                     self.products_data = []
-                    with open(settings.styles_csv_path, 'r', encoding='utf-8') as file:
+                    with open(csv_path, 'r', encoding='utf-8') as file:
                         csv_reader = csv.DictReader(file)
                         for row in csv_reader:
                             self.products_data.append(row)
-                    logger.info(f"Fallback mode initialized without pandas: {len(self.products_data)} products")
+                    logger.info(f"Loaded {len(self.products_data)} products without pandas")
                 
-                self.fallback_mode = True
+                # Generate embeddings for all products
+                await self._generate_embeddings_for_all_products()
+                
+                self.fallback_mode = False  # We have embeddings now
                 return True
             else:
-                logger.error("No data files found for fallback mode")
+                logger.error("No CSV file found in any location")
                 return False
+                
         except Exception as e:
-            logger.error(f"Error initializing fallback mode: {e}")
+            logger.error(f"Error initializing embedding mode: {e}")
             return False
+    
+    async def _generate_embeddings_for_all_products(self):
+        """
+        Generate embeddings for all products following the OpenAI cookbook approach
+        """
+        try:
+            # Import OpenAI service here to avoid circular imports
+            from app.services.openai_service import OpenAIService
+            if not self.openai_service:
+                self.openai_service = OpenAIService()
+            
+            logger.info("Generating embeddings for all products...")
+            
+            # Create product descriptions for embedding
+            product_descriptions = []
+            for product in self.products_data:
+                # Create rich description following cookbook approach
+                description = self._create_product_description(product)
+                product_descriptions.append(description)
+            
+            # Generate embeddings in batches to be cost-efficient
+            batch_size = 100  # Process in batches to avoid API limits
+            all_embeddings = []
+            
+            for i in range(0, len(product_descriptions), batch_size):
+                batch = product_descriptions[i:i + batch_size]
+                logger.info(f"Generating embeddings for batch {i//batch_size + 1}/{(len(product_descriptions) + batch_size - 1)//batch_size}")
+                
+                try:
+                    batch_embeddings = await self.openai_service.get_embeddings_batch(batch)
+                    all_embeddings.extend(batch_embeddings)
+                except Exception as e:
+                    logger.error(f"Error generating embeddings for batch: {e}")
+                    # Create zero embeddings as fallback
+                    zero_embedding = [0.0] * 1536  # text-embedding-3-large dimension
+                    all_embeddings.extend([zero_embedding] * len(batch))
+            
+            # Combine products with their embeddings
+            self.products_with_embeddings = []
+            for product, embedding in zip(self.products_data, all_embeddings):
+                product_with_embedding = product.copy()
+                product_with_embedding['embedding'] = embedding
+                self.products_with_embeddings.append(product_with_embedding)
+            
+            logger.info(f"Generated embeddings for {len(self.products_with_embeddings)} products")
+            
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {e}")
+            # Fallback: use products without embeddings (will use random selection)
+            self.products_with_embeddings = []
+    
+    def _create_product_description(self, product: Dict) -> str:
+        """
+        Create rich product description for embedding generation
+        Following the OpenAI cookbook approach
+        """
+        description_parts = []
+        
+        # Product name
+        if product.get('productDisplayName'):
+            description_parts.append(product['productDisplayName'])
+        
+        # Category and type
+        if product.get('masterCategory'):
+            description_parts.append(f"Category: {product['masterCategory']}")
+        
+        if product.get('subCategory'):
+            description_parts.append(f"Subcategory: {product['subCategory']}")
+        
+        if product.get('articleType'):
+            description_parts.append(f"Type: {product['articleType']}")
+        
+        # Color and style attributes
+        if product.get('baseColour'):
+            description_parts.append(f"Color: {product['baseColour']}")
+        
+        if product.get('gender'):
+            description_parts.append(f"Gender: {product['gender']}")
+        
+        if product.get('season'):
+            description_parts.append(f"Season: {product['season']}")
+        
+        if product.get('usage'):
+            description_parts.append(f"Usage: {product['usage']}")
+        
+        return " | ".join(description_parts)
+    
+    def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """
+        Custom cosine similarity implementation following cookbook approach
+        Avoids numpy dependency while maintaining accuracy
+        """
+        if len(vec1) != len(vec2):
+            return 0.0
+            
+        # Calculate dot product
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        
+        # Calculate magnitudes
+        magnitude1 = math.sqrt(sum(a * a for a in vec1))
+        magnitude2 = math.sqrt(sum(b * b for b in vec2))
+        
+        # Avoid division by zero
+        if magnitude1 == 0.0 or magnitude2 == 0.0:
+            return 0.0
+            
+        return dot_product / (magnitude1 * magnitude2)
+    
+    async def similarity_search(
+        self, 
+        query_embedding: List[float], 
+        k: int = 20,
+        exclude_ids: List[str] = None
+    ) -> List[Tuple[ProductItem, float]]:
+        """
+        Perform similarity search using embeddings or FAISS
+        Returns top-k similar items with scores
+        """
+        exclude_ids = exclude_ids or []
+        
+        # Use FAISS if available
+        if not self.fallback_mode and self.index is not None and FAISS_AVAILABLE:
+            return await self._faiss_search(query_embedding, k, exclude_ids)
+        
+        # Use custom similarity search with embeddings
+        if self.products_with_embeddings:
+            return await self._embedding_similarity_search(query_embedding, k, exclude_ids)
+        
+        # Final fallback - this should not happen in production
+        logger.error("No embeddings available for similarity search")
+        return []
+    
+    async def _faiss_search(self, query_embedding: List[float], k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
+        """
+        FAISS-based similarity search
+        """
+        query_vector = np.array([query_embedding]).astype('float32')
+        search_k = min(k * 3, self.index.ntotal)
+        distances, indices = self.index.search(query_vector, search_k)
+        
+        results = []
+        for distance, idx in zip(distances[0], indices[0]):
+            if len(results) >= k:
+                break
+                
+            product_data = self.metadata[idx] if self.metadata else self.df.iloc[idx].to_dict()
+            product_id = str(product_data['id'])
+            
+            if product_id in exclude_ids:
+                continue
+            
+            similarity_score = 1.0 / (1.0 + distance)
+            product_item = self._create_product_item(product_data, similarity_score)
+            results.append((product_item, similarity_score))
+        
+        return results
+    
+    async def _embedding_similarity_search(self, query_embedding: List[float], k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
+        """
+        Custom embedding-based similarity search following OpenAI cookbook
+        """
+        similarities = []
+        
+        for product in self.products_with_embeddings:
+            product_id = str(product['id'])
+            if product_id in exclude_ids:
+                continue
+            
+            if 'embedding' in product and product['embedding']:
+                similarity = self.cosine_similarity(query_embedding, product['embedding'])
+                similarities.append((product, similarity))
+        
+        # Sort by similarity (highest first)
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        
+        # Take top-k results
+        top_results = similarities[:k]
+        
+        # Convert to ProductItem format
+        results = []
+        for product_data, similarity in top_results:
+            product_item = self._create_product_item(product_data, similarity)
+            results.append((product_item, similarity))
+        
+        logger.info(f"Embedding similarity search returned {len(results)} results")
+        return results
     
     def create_index_from_embeddings(self, embeddings: List[List[float]], metadata: List[Dict]) -> None:
         """
@@ -137,88 +351,31 @@ class VectorSearchService:
         logger.info(f"Created and saved FAISS index with {self.index.ntotal} vectors")
         self.fallback_mode = False
     
-    async def similarity_search(
-        self, 
-        query_embedding: List[float], 
-        k: int = 20,
-        exclude_ids: List[str] = None
-    ) -> List[Tuple[ProductItem, float]]:
+    async def _fallback_search(self, k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
         """
-        Perform similarity search using FAISS or fallback to random selection
-        Returns top-k similar items with scores
+        Fallback search when no embeddings are available
+        This should rarely be used in production
         """
-        exclude_ids = exclude_ids or []
+        logger.warning("Using fallback search without embeddings - this should not happen in production")
         
-        if self.fallback_mode or not FAISS_AVAILABLE or not NUMPY_AVAILABLE:
-            return await self._fallback_search(k, exclude_ids)
+        # Use basic product data if available
+        available_products = [p for p in self.products_data if str(p['id']) not in exclude_ids]
         
-        if self.index is None:
-            logger.warning("No FAISS index available, using fallback search")
-            return await self._fallback_search(k, exclude_ids)
+        if not available_products:
+            return []
         
-        # Convert query to numpy array
-        query_vector = np.array([query_embedding]).astype('float32')
-        
-        # Search for more items than needed to account for exclusions
-        search_k = min(k * 3, self.index.ntotal)  # Search more to handle exclusions
-        distances, indices = self.index.search(query_vector, search_k)
+        # Take first k products as fallback
+        sample_size = min(k, len(available_products))
+        selected_products = available_products[:sample_size]
         
         results = []
-        for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
-            if len(results) >= k:
-                break
-                
-            # Get product metadata
-            product_data = self.metadata[idx] if self.metadata else self.df.iloc[idx].to_dict()
-            product_id = str(product_data['id'])
-            
-            # Skip excluded items
-            if product_id in exclude_ids:
-                continue
-            
-            # Convert distance to similarity score (lower distance = higher similarity)
-            similarity_score = 1.0 / (1.0 + distance)
-            
-            # Create ProductItem
+        for product_data in selected_products:
+            # Use a low similarity score to indicate this is fallback
+            similarity_score = 0.1
             product_item = self._create_product_item(product_data, similarity_score)
             results.append((product_item, similarity_score))
         
-        logger.info(f"Found {len(results)} similar items for query")
-        return results
-    
-    async def _fallback_search(self, k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
-        """
-        Fallback search when FAISS is not available
-        Returns random selection of products with mock similarity scores
-        """
-        # Use pandas data if available, otherwise use manual CSV data
-        if PANDAS_AVAILABLE and self.df is not None:
-            available_df = self.df[~self.df['id'].astype(str).isin(exclude_ids)]
-            sample_size = min(k, len(available_df))
-            sampled_df = available_df.sample(n=sample_size)
-            
-            results = []
-            for _, row in sampled_df.iterrows():
-                similarity_score = 0.5 + (hash(str(row['id'])) % 1000) / 2000.0
-                product_item = self._create_product_item(row.to_dict(), similarity_score)
-                results.append((product_item, similarity_score))
-                
-        elif self.products_data:
-            # Filter out excluded IDs
-            available_products = [p for p in self.products_data if str(p['id']) not in exclude_ids]
-            sample_size = min(k, len(available_products))
-            sampled_products = random.sample(available_products, sample_size)
-            
-            results = []
-            for product_data in sampled_products:
-                similarity_score = 0.5 + (hash(str(product_data['id'])) % 1000) / 2000.0
-                product_item = self._create_product_item(product_data, similarity_score)
-                results.append((product_item, similarity_score))
-        else:
-            logger.error("No data available for fallback search")
-            return []
-        
-        logger.info(f"Fallback search returned {len(results)} random items")
+        logger.warning(f"Fallback search returned {len(results)} items")
         return results
     
     def _create_product_item(self, product_data: Dict, similarity_score: float) -> ProductItem:
@@ -247,8 +404,6 @@ class VectorSearchService:
         """
         Get store location for product (mock implementation)
         """
-        # This would normally query a store inventory system
-        # For now, return mock location based on product ID hash
         locations = ["A1-B2", "C3-D4", "E5-F6", "G7-H8", "I9-J10"]
         return locations[hash(product_id) % len(locations)]
     
@@ -276,6 +431,8 @@ class VectorSearchService:
         """
         if self.index and FAISS_AVAILABLE:
             return self.index.ntotal
+        elif self.products_with_embeddings:
+            return len(self.products_with_embeddings)
         elif PANDAS_AVAILABLE and self.df is not None:
             return len(self.df)
         elif self.products_data:
