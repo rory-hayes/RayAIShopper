@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 import uuid
-from app.services.recommendation_service import RecommendationService
-from app.services.openai_service import OpenAIService
 from app.models.requests import (
     RecommendationRequest, 
     ChatRequest, 
@@ -26,21 +24,20 @@ import os
 logger = get_logger(__name__)
 router = APIRouter()
 
-# Global service instances
-recommendation_service = RecommendationService()
+# Dependency to get recommendation service from main.py
+def get_recommendation_service():
+    from app.main import get_recommendation_service as get_service
+    service = get_service()
+    if service is None:
+        raise HTTPException(status_code=503, detail="Recommendation service not initialized")
+    return service
+
+# OpenAI service for specific endpoints that need it
+from app.services.openai_service import OpenAIService
 openai_service = OpenAIService()
 
-@router.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    logger.info("Starting up API services...")
-    success = await recommendation_service.initialize()
-    if not success:
-        logger.error("Failed to initialize recommendation service")
-        raise RuntimeError("Could not initialize recommendation service")
-
 @router.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(recommendation_service = Depends(get_recommendation_service)):
     """Health check endpoint"""
     try:
         service_status = recommendation_service.get_service_status()
@@ -68,7 +65,7 @@ async def health_check():
         raise HTTPException(status_code=500, detail="Health check failed")
 
 @router.post("/recommendations", response_model=RecommendationResponse)
-async def get_recommendations(request: RecommendationRequest):
+async def get_recommendations(request: RecommendationRequest, recommendation_service = Depends(get_recommendation_service)):
     """
     Get personalized outfit recommendations
     
@@ -111,7 +108,7 @@ async def get_recommendations(request: RecommendationRequest):
         )
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat_with_assistant(request: ChatRequest):
+async def chat_with_assistant(request: ChatRequest, recommendation_service = Depends(get_recommendation_service)):
     """
     Chat with Ray, the fashion assistant
     
@@ -201,7 +198,7 @@ async def virtual_tryon(request: TryOnRequest):
         )
 
 @router.post("/feedback", response_model=FeedbackResponse)
-async def process_feedback(request: FeedbackRequest):
+async def process_feedback(request: FeedbackRequest, recommendation_service = Depends(get_recommendation_service)):
     """
     Process user feedback on recommendations
     
@@ -249,7 +246,7 @@ async def process_feedback(request: FeedbackRequest):
         )
 
 @router.post("/refresh", response_model=List[dict])
-async def refresh_recommendations(request: RefreshRequest):
+async def refresh_recommendations(request: RefreshRequest, recommendation_service = Depends(get_recommendation_service)):
     """
     Get fresh recommendations to replace disliked items
     
