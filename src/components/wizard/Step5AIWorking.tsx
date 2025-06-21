@@ -9,7 +9,11 @@ export const Step5AIWorking: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('')
 
   useEffect(() => {
+    let isMounted = true // Prevent double execution in React StrictMode
+
     const processRecommendations = async () => {
+      if (!isMounted) return // Exit early if component unmounted
+
       try {
         setStatus('processing')
 
@@ -55,6 +59,8 @@ export const Step5AIWorking: React.FC = () => {
           exclude_ids: [] // No exclusions on first request
         })
         
+        if (!isMounted) return // Exit early if component unmounted during API call
+
         console.log('API Response:', response)
         console.log('Response recommendations count:', response.recommendations?.length)
         console.log('First recommendation:', response.recommendations?.[0])
@@ -95,20 +101,29 @@ export const Step5AIWorking: React.FC = () => {
           throw new Error(`Failed to process recommendations: ${mappingError}`)
         }
 
+        if (!isMounted) return // Exit early if component unmounted
+
         setStatus('success')
         
         // Move to next step after brief success display
         setTimeout(() => {
-          nextStep()
+          if (isMounted) {
+            nextStep()
+          }
         }, 1500)
 
       } catch (error) {
+        if (!isMounted) return // Exit early if component unmounted
+
         console.error('Error fetching recommendations:', error)
         setStatus('error')
         setErrorMessage(error instanceof Error ? error.message : 'Failed to get recommendations')
         
-        // Fallback to mock data after 3 seconds
+        // Fallback to mock data after 8 seconds (increased from 3)
         setTimeout(() => {
+          if (!isMounted) return // Exit early if component unmounted
+
+          console.log('Using fallback mock data after API timeout/error')
           // Use mock data as fallback
           updateFormData({
             selectedItems: [
@@ -135,11 +150,16 @@ export const Step5AIWorking: React.FC = () => {
             ]
           })
           nextStep()
-        }, 3000)
+        }, 8000) // Increased timeout to 8 seconds
       }
     }
 
     processRecommendations()
+
+    // Cleanup function to prevent double execution
+    return () => {
+      isMounted = false
+    }
   }, [formData, nextStep, updateFormData])
 
   const renderContent = () => {
