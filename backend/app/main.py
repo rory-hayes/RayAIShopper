@@ -4,11 +4,9 @@ from fastapi.responses import JSONResponse
 import time
 import uuid
 from contextlib import asynccontextmanager
-from app.api.routes import router
 from app.config import settings
 from app.utils.logging import setup_logging, get_logger
 from app.models.responses import ErrorResponse
-from app.routers import health, recommendations, chat, tryon, feedback, refresh, debug
 
 # Setup logging
 setup_logging()
@@ -27,13 +25,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"Using GPT model: {settings.gpt_model}")
     logger.info(f"Using embedding model: {settings.embedding_model}")
     
-    from app.services.recommendation_service import RecommendationService
-    recommendation_service = RecommendationService()
-    
-    # Initialize the service
-    success = await recommendation_service.initialize()
-    if not success:
-        logger.error("Failed to initialize recommendation service")
+    try:
+        from app.services.recommendation_service import RecommendationService
+        recommendation_service = RecommendationService()
+        
+        # Initialize the service
+        success = await recommendation_service.initialize()
+        if not success:
+            logger.error("Failed to initialize recommendation service")
+        else:
+            logger.info("Recommendation service initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing recommendation service: {e}")
     
     logger.info("Ray AI Shopper Backend started successfully")
     yield
@@ -138,16 +141,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 # Include API routes
-app.include_router(router, prefix=settings.api_prefix)
-
-# Include routers
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(recommendations.router, prefix="/api/v1", tags=["recommendations"])
-app.include_router(chat.router, prefix="/api/v1", tags=["chat"])
-app.include_router(tryon.router, prefix="/api/v1", tags=["tryon"])
-app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
-app.include_router(refresh.router, prefix="/api/v1", tags=["refresh"])
-app.include_router(debug.router, prefix="/api/v1", tags=["debug"])
+try:
+    from app.api.routes import router
+    app.include_router(router, prefix=settings.api_prefix)
+    logger.info("Included main API router")
+except Exception as e:
+    logger.error(f"Error including main API router: {e}")
 
 # Root endpoint
 @app.get("/")
