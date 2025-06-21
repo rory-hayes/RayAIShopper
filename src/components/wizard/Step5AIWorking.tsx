@@ -64,6 +64,10 @@ export const Step5AIWorking: React.FC = () => {
         console.log('API Response:', response)
         console.log('Response recommendations count:', response.recommendations?.length)
         console.log('First recommendation:', response.recommendations?.[0])
+        
+        // DEBUGGING: Very obvious test to see if this code path is reached
+        console.log('🔥 CRITICAL DEBUG: API response received successfully, processing now...')
+        alert('🔥 DEBUG: Got API response with ' + response.recommendations?.length + ' items')
 
         // Validate response structure
         if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
