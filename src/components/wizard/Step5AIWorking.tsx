@@ -56,24 +56,44 @@ export const Step5AIWorking: React.FC = () => {
         })
         
         console.log('API Response:', response)
+        console.log('Response recommendations count:', response.recommendations?.length)
+        console.log('First recommendation:', response.recommendations?.[0])
+
+        // Validate response structure
+        if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
+          throw new Error('Invalid response structure from backend')
+        }
+
+        if (response.recommendations.length === 0) {
+          throw new Error('No recommendations returned from backend')
+        }
 
         // Update form data with real recommendations
-        updateFormData({
-          selectedItems: response.recommendations.map(item => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            price: Math.floor(Math.random() * 200) + 50, // Mock price for now
-            image: item.image_url,
-            description: `${item.article_type} in ${item.color}`,
-            inStock: true,
-            storeLocation: item.store_location || 'A1-B2',
-            similarity_score: item.similarity_score,
-            article_type: item.article_type,
-            color: item.color,
-            usage: item.usage
-          }))
-        })
+        try {
+          updateFormData({
+            selectedItems: response.recommendations.map((item, index) => {
+              console.log(`Processing item ${index}:`, item)
+              return {
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                price: Math.floor(Math.random() * 200) + 50, // Mock price for now
+                image: item.image_url,
+                description: `${item.article_type} in ${item.color}`,
+                inStock: true,
+                storeLocation: item.store_location || 'A1-B2',
+                similarity_score: item.similarity_score,
+                article_type: item.article_type,
+                color: item.color,
+                usage: item.usage
+              }
+            })
+          })
+          console.log('Successfully updated form data with real recommendations')
+        } catch (mappingError) {
+          console.error('Error mapping recommendations:', mappingError)
+          throw new Error(`Failed to process recommendations: ${mappingError}`)
+        }
 
         setStatus('success')
         

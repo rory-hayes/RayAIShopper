@@ -40,10 +40,9 @@ export interface RecommendationRequest {
 
 export interface RecommendationResponse {
   recommendations: ProductItem[]
-  total_found: number
-  search_query: string
-  processing_time: number
-  fallback_mode: boolean
+  total_available: number
+  session_id: string
+  query_embedding: number[] | null
 }
 
 export interface ChatRequest {
