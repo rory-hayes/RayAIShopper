@@ -108,7 +108,7 @@ class VectorSearchService:
                         break
             
             if csv_path:
-                logger.info("Loading CSV data for embedding generation...")
+                logger.info("Loading CSV data...")
                 
                 # Load CSV data
                 if PANDAS_AVAILABLE:
@@ -125,10 +125,11 @@ class VectorSearchService:
                             self.products_data.append(row)
                     logger.info(f"Loaded {len(self.products_data)} products without pandas")
                 
-                # Generate embeddings for all products
-                await self._generate_embeddings_for_all_products()
+                # Don't generate embeddings at startup to avoid timeouts
+                # Instead, we'll generate them on-demand or use a simpler similarity approach
+                logger.info("CSV data loaded successfully. Embeddings will be generated on-demand.")
                 
-                self.fallback_mode = False  # We have embeddings now
+                self.fallback_mode = False  # We have data loaded
                 return True
             else:
                 logger.error("No CSV file found in any location")
@@ -249,10 +250,11 @@ class VectorSearchService:
         self, 
         query_embedding: List[float], 
         k: int = 20,
-        exclude_ids: List[str] = None
+        exclude_ids: List[str] = None,
+        search_query: str = None
     ) -> List[Tuple[ProductItem, float]]:
         """
-        Perform similarity search using embeddings or FAISS
+        Perform similarity search using embeddings, FAISS, or keyword matching
         Returns top-k similar items with scores
         """
         exclude_ids = exclude_ids or []
@@ -261,12 +263,16 @@ class VectorSearchService:
         if not self.fallback_mode and self.index is not None and FAISS_AVAILABLE:
             return await self._faiss_search(query_embedding, k, exclude_ids)
         
-        # Use custom similarity search with embeddings
+        # Use embedding similarity if we have embeddings
         if self.products_with_embeddings:
             return await self._embedding_similarity_search(query_embedding, k, exclude_ids)
         
+        # Use keyword-based search as immediate fallback
+        if self.products_data:
+            return await self._keyword_similarity_search(k, exclude_ids, search_query)
+        
         # Final fallback - this should not happen in production
-        logger.error("No embeddings available for similarity search")
+        logger.error("No data available for similarity search")
         return []
     
     async def _faiss_search(self, query_embedding: List[float], k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
@@ -323,6 +329,100 @@ class VectorSearchService:
         
         logger.info(f"Embedding similarity search returned {len(results)} results")
         return results
+    
+    async def _keyword_similarity_search(self, k: int, exclude_ids: List[str], search_query: str = None) -> List[Tuple[ProductItem, float]]:
+        """
+        Keyword-based similarity search using text matching
+        This provides meaningful matching based on user search terms
+        """
+        logger.info("Using keyword-based similarity search with text matching")
+        
+        # Filter out excluded IDs
+        available_products = [p for p in self.products_data if str(p['id']) not in exclude_ids]
+        
+        if not available_products:
+            return []
+        
+        # If we have a search query, do text-based matching
+        if search_query:
+            scored_products = []
+            search_terms = search_query.lower().split()
+            
+            for product_data in available_products:
+                score = self._calculate_text_similarity(product_data, search_terms)
+                if score > 0:  # Only include products with some relevance
+                    scored_products.append((product_data, score))
+            
+            # Sort by score (highest first) and take top k
+            scored_products.sort(key=lambda x: x[1], reverse=True)
+            sample_size = min(k, len(scored_products))
+            selected_products = scored_products[:sample_size]
+            
+        else:
+            # Fallback to diverse selection if no search query
+            sample_size = min(k, len(available_products))
+            selected_products = [(p, 0.5) for p in available_products[:sample_size]]
+        
+        # Convert to ProductItem format
+        results = []
+        for product_data, similarity_score in selected_products:
+            product_item = self._create_product_item(product_data, similarity_score)
+            results.append((product_item, similarity_score))
+        
+        logger.info(f"Keyword similarity search returned {len(results)} items")
+        return results
+    
+    def _calculate_text_similarity(self, product_data: Dict, search_terms: List[str]) -> float:
+        """
+        Calculate text-based similarity score between product and search terms
+        """
+        score = 0.0
+        
+        # Create searchable text from product data
+        searchable_fields = [
+            product_data.get('productDisplayName', ''),
+            product_data.get('masterCategory', ''),
+            product_data.get('subCategory', ''),
+            product_data.get('articleType', ''),
+            product_data.get('baseColour', ''),
+            product_data.get('gender', ''),
+            product_data.get('season', ''),
+            product_data.get('usage', '')
+        ]
+        
+        product_text = ' '.join(searchable_fields).lower()
+        
+        # Score based on term matches
+        for term in search_terms:
+            if term in product_text:
+                # Higher score for exact matches in important fields
+                if term in product_data.get('productDisplayName', '').lower():
+                    score += 0.3
+                elif term in product_data.get('articleType', '').lower():
+                    score += 0.25
+                elif term in product_data.get('baseColour', '').lower():
+                    score += 0.2
+                elif term in product_data.get('usage', '').lower():
+                    score += 0.15
+                else:
+                    score += 0.1
+        
+        # Bonus for gender match
+        if any(term in ['men', 'man', 'male'] for term in search_terms):
+            if product_data.get('gender', '').lower() in ['men', 'male']:
+                score += 0.2
+        elif any(term in ['women', 'woman', 'female'] for term in search_terms):
+            if product_data.get('gender', '').lower() in ['women', 'female']:
+                score += 0.2
+        
+        # Bonus for season/occasion match
+        season_terms = ['summer', 'winter', 'spring', 'fall', 'casual', 'formal', 'party', 'beach', 'pool']
+        for term in search_terms:
+            if term in season_terms:
+                if term in product_data.get('season', '').lower() or term in product_data.get('usage', '').lower():
+                    score += 0.15
+        
+        return min(score, 1.0)  # Cap at 1.0
     
     def create_index_from_embeddings(self, embeddings: List[List[float]], metadata: List[Dict]) -> None:
         """
@@ -411,7 +511,8 @@ class VectorSearchService:
         self, 
         query_embedding: List[float],
         exclude_ids: List[str],
-        count: int = 1
+        count: int = 1,
+        search_query: str = None
     ) -> List[ProductItem]:
         """
         Get fresh recommendations excluding specified IDs
@@ -420,7 +521,8 @@ class VectorSearchService:
         results = await self.similarity_search(
             query_embedding=query_embedding,
             k=count,
-            exclude_ids=exclude_ids
+            exclude_ids=exclude_ids,
+            search_query=search_query
         )
         
         return [item for item, _ in results]
@@ -433,10 +535,10 @@ class VectorSearchService:
             return self.index.ntotal
         elif self.products_with_embeddings:
             return len(self.products_with_embeddings)
+        elif self.products_data:  # This should be the main path now
+            return len(self.products_data)
         elif PANDAS_AVAILABLE and self.df is not None:
             return len(self.df)
-        elif self.products_data:
-            return len(self.products_data)
         else:
             return 0
     

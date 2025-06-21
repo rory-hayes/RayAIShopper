@@ -69,7 +69,8 @@ class RecommendationService:
             search_results = await self.vector_service.similarity_search(
                 query_embedding=query_embedding,
                 k=min(request.top_k * 2, settings.max_search_results),
-                exclude_ids=exclude_ids
+                exclude_ids=exclude_ids,
+                search_query=search_query
             )
             
             # Extract products from search results
@@ -167,7 +168,8 @@ class RecommendationService:
             fresh_items = await self.vector_service.get_fresh_recommendations(
                 query_embedding=query_embedding,
                 exclude_ids=all_exclude_ids,
-                count=count
+                count=count,
+                search_query=session_data.get("search_query")
             )
             
             # Update session cache with new excludes
