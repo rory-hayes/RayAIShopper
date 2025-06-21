@@ -30,13 +30,19 @@ async def lifespan(app: FastAPI):
         recommendation_service = RecommendationService()
         
         # Initialize the service
+        logger.info("Initializing recommendation service...")
         success = await recommendation_service.initialize()
         if not success:
             logger.error("Failed to initialize recommendation service")
         else:
             logger.info("Recommendation service initialized successfully")
+            # Log service status
+            status = recommendation_service.get_service_status()
+            logger.info(f"Service status: {status}")
     except Exception as e:
         logger.error(f"Error initializing recommendation service: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
     
     logger.info("Ray AI Shopper Backend started successfully")
     yield
@@ -160,8 +166,21 @@ async def root():
         "api_prefix": settings.api_prefix
     }
 
+# Debug endpoint to test service availability
+@app.get("/debug/service")
+async def debug_service():
+    """Debug endpoint to check service status"""
+    global recommendation_service
+    return {
+        "service_exists": recommendation_service is not None,
+        "service_type": str(type(recommendation_service)) if recommendation_service else None,
+        "service_status": recommendation_service.get_service_status() if recommendation_service else None
+    }
+
 # Make recommendation service available to routers
 def get_recommendation_service():
+    global recommendation_service
+    logger.info(f"get_recommendation_service called, service is: {recommendation_service}")
     return recommendation_service
 
 if __name__ == "__main__":
