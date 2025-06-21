@@ -15,11 +15,17 @@ export const Step5AIWorking: React.FC = () => {
 
         // Convert form data to API format
         const userProfile = convertToUserProfile(formData)
+        console.log('User Profile:', userProfile)
 
         // Prepare inspiration images if any
-        const inspirationImages = formData.inspirationImages?.map((img: string) => 
+        const inspirationImages = formData.inspirationImages?.filter((img: any) => 
+          img && typeof img === 'string' && img.trim() !== ''
+        ).map((img: string) => 
           convertFromBase64(img)
-        ) || []
+        ).filter((img: string) => img !== '') || []
+        
+        console.log('Inspiration Images Count:', inspirationImages.length)
+        console.log('Form Data:', formData)
 
         // Call the backend API
         const response = await apiService.getRecommendations({
@@ -27,6 +33,8 @@ export const Step5AIWorking: React.FC = () => {
           inspiration_images: inspirationImages.length > 0 ? inspirationImages : undefined,
           exclude_ids: [] // No exclusions on first request
         })
+        
+        console.log('API Response:', response)
 
         // Update form data with real recommendations
         updateFormData({

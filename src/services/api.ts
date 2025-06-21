@@ -189,19 +189,75 @@ export const apiService = new ApiService()
 
 // Utility functions
 export const convertToUserProfile = (formData: any): UserProfile => {
+  // Map gender to backend enum format
+  const mapGender = (gender: string): string => {
+    switch (gender?.toLowerCase()) {
+      case 'men':
+      case 'male':
+        return 'Men'
+      case 'women':
+      case 'female':
+        return 'Women'
+      case 'unisex':
+        return 'Unisex'
+      default:
+        return 'Unisex'
+    }
+  }
+
+  // Map styles to backend enum format
+  const mapStyles = (styles: string[]): string[] => {
+    return styles?.map(style => {
+      switch (style?.toLowerCase()) {
+        case 'casual':
+          return 'Casual'
+        case 'formal':
+          return 'Formal'
+        case 'smart casual':
+        case 'smart-casual':
+          return 'Smart Casual'
+        case 'sporty':
+        case 'sport':
+          return 'Sporty'
+        case 'elegant':
+          return 'Elegant'
+        case 'trendy':
+        case 'trend':
+          return 'Trendy'
+        case 'classic':
+          return 'Classic'
+        default:
+          return 'Casual' // Default fallback
+      }
+    }) || []
+  }
+
+  // Map size to backend enum format
+  const mapSize = (size: string): string => {
+    const sizeUpper = size?.toUpperCase()
+    const validSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+    return validSizes.includes(sizeUpper) ? sizeUpper : 'M' // Default to M
+  }
+
   return {
     shopping_prompt: formData.shoppingPrompt || '',
-    gender: formData.gender || '',
-    preferred_styles: formData.preferredStyles || [],
+    gender: mapGender(formData.gender),
+    preferred_styles: mapStyles(formData.preferredStyles),
     preferred_colors: formData.preferredColors || [],
-    size: formData.size || '',
+    size: mapSize(formData.size),
     age_range: formData.ageRange,
     budget_range: formData.budgetRange,
     body_type: formData.bodyType,
   }
 }
 
-export const convertFromBase64 = (base64String: string): string => {
+export const convertFromBase64 = (base64String: any): string => {
+  // Handle non-string inputs safely
+  if (!base64String || typeof base64String !== 'string') {
+    console.warn('convertFromBase64 received non-string input:', base64String)
+    return ''
+  }
+  
   // Remove data:image/jpeg;base64, prefix if present
   return base64String.replace(/^data:image\/[a-z]+;base64,/, '')
 } 
