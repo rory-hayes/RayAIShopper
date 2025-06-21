@@ -1,12 +1,31 @@
 import os
 import pickle
-import pandas as pd
-import numpy as np
-import faiss
+import csv
+import json
+import random
 from typing import List, Dict, Tuple, Optional
 from app.config import settings
 from app.utils.logging import get_logger
 from app.models.responses import ProductItem
+
+# Optional heavy dependencies - graceful fallback if not available
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+try:
+    import faiss
+    FAISS_AVAILABLE = True
+except ImportError:
+    FAISS_AVAILABLE = False
 
 logger = get_logger(__name__)
 
@@ -15,15 +34,21 @@ class VectorSearchService:
         self.index = None
         self.metadata = None
         self.df = None
+        self.products_data = []  # Fallback storage without pandas
         self.dimension = None
-        self.fallback_mode = False
+        self.fallback_mode = True  # Start in fallback mode by default
         
     async def load_or_create_index(self) -> bool:
         """
         Load existing FAISS index or create new one from embeddings
-        Following cookbook's approach for vector store management
+        Falls back to CSV-only mode if heavy dependencies unavailable
         """
         try:
+            # Check if we have the required dependencies for full functionality
+            if not (FAISS_AVAILABLE and NUMPY_AVAILABLE and PANDAS_AVAILABLE):
+                logger.warning("Heavy dependencies not available (faiss/numpy/pandas). Using lightweight fallback mode.")
+                return await self._initialize_fallback_mode()
+            
             # Try to load existing index
             if os.path.exists(settings.faiss_index_path) and os.path.exists(settings.metadata_path):
                 logger.info("Loading existing FAISS index...")
@@ -41,11 +66,12 @@ class VectorSearchService:
                     self.df = pd.read_csv(settings.styles_csv_path)
                 
                 self.dimension = self.index.d
+                self.fallback_mode = False
                 logger.info(f"Loaded FAISS index with {self.index.ntotal} vectors, dimension {self.dimension}")
                 return True
             else:
                 # Fallback mode - load just the CSV data
-                logger.warning("No FAISS index found. Attempting fallback mode with CSV data...")
+                logger.warning("No FAISS index found. Using fallback mode with CSV data...")
                 return await self._initialize_fallback_mode()
                 
         except Exception as e:
@@ -55,15 +81,27 @@ class VectorSearchService:
     
     async def _initialize_fallback_mode(self) -> bool:
         """
-        Initialize fallback mode using just CSV data without FAISS
+        Initialize fallback mode using just CSV data without heavy dependencies
         This allows the service to start even without pre-generated embeddings
         """
         try:
             if os.path.exists(settings.styles_csv_path):
                 logger.info("Initializing fallback mode with CSV data...")
-                self.df = pd.read_csv(settings.styles_csv_path)
+                
+                # Use pandas if available, otherwise use csv module
+                if PANDAS_AVAILABLE:
+                    self.df = pd.read_csv(settings.styles_csv_path)
+                    logger.info(f"Fallback mode initialized with pandas: {len(self.df)} products")
+                else:
+                    # Load CSV manually without pandas
+                    self.products_data = []
+                    with open(settings.styles_csv_path, 'r', encoding='utf-8') as file:
+                        csv_reader = csv.DictReader(file)
+                        for row in csv_reader:
+                            self.products_data.append(row)
+                    logger.info(f"Fallback mode initialized without pandas: {len(self.products_data)} products")
+                
                 self.fallback_mode = True
-                logger.info(f"Fallback mode initialized with {len(self.df)} products")
                 return True
             else:
                 logger.error("No data files found for fallback mode")
@@ -74,9 +112,12 @@ class VectorSearchService:
     
     def create_index_from_embeddings(self, embeddings: List[List[float]], metadata: List[Dict]) -> None:
         """
-        Create FAISS index from embeddings
-        Following cookbook's FAISS setup
+        Create FAISS index from embeddings - only works if dependencies available
         """
+        if not (FAISS_AVAILABLE and NUMPY_AVAILABLE):
+            logger.warning("Cannot create FAISS index: required dependencies not available")
+            return
+            
         embeddings_array = np.array(embeddings).astype('float32')
         self.dimension = embeddings_array.shape[1]
         
@@ -108,7 +149,7 @@ class VectorSearchService:
         """
         exclude_ids = exclude_ids or []
         
-        if self.fallback_mode:
+        if self.fallback_mode or not FAISS_AVAILABLE or not NUMPY_AVAILABLE:
             return await self._fallback_search(k, exclude_ids)
         
         if self.index is None:
@@ -150,23 +191,32 @@ class VectorSearchService:
         Fallback search when FAISS is not available
         Returns random selection of products with mock similarity scores
         """
-        if self.df is None:
+        # Use pandas data if available, otherwise use manual CSV data
+        if PANDAS_AVAILABLE and self.df is not None:
+            available_df = self.df[~self.df['id'].astype(str).isin(exclude_ids)]
+            sample_size = min(k, len(available_df))
+            sampled_df = available_df.sample(n=sample_size)
+            
+            results = []
+            for _, row in sampled_df.iterrows():
+                similarity_score = 0.5 + (hash(str(row['id'])) % 1000) / 2000.0
+                product_item = self._create_product_item(row.to_dict(), similarity_score)
+                results.append((product_item, similarity_score))
+                
+        elif self.products_data:
+            # Filter out excluded IDs
+            available_products = [p for p in self.products_data if str(p['id']) not in exclude_ids]
+            sample_size = min(k, len(available_products))
+            sampled_products = random.sample(available_products, sample_size)
+            
+            results = []
+            for product_data in sampled_products:
+                similarity_score = 0.5 + (hash(str(product_data['id'])) % 1000) / 2000.0
+                product_item = self._create_product_item(product_data, similarity_score)
+                results.append((product_item, similarity_score))
+        else:
             logger.error("No data available for fallback search")
             return []
-        
-        # Filter out excluded IDs
-        available_df = self.df[~self.df['id'].astype(str).isin(exclude_ids)]
-        
-        # Sample random products
-        sample_size = min(k, len(available_df))
-        sampled_df = available_df.sample(n=sample_size)
-        
-        results = []
-        for _, row in sampled_df.iterrows():
-            # Mock similarity score (random but consistent)
-            similarity_score = 0.5 + (hash(str(row['id'])) % 1000) / 2000.0
-            product_item = self._create_product_item(row.to_dict(), similarity_score)
-            results.append((product_item, similarity_score))
         
         logger.info(f"Fallback search returned {len(results)} random items")
         return results
@@ -224,10 +274,12 @@ class VectorSearchService:
         """
         Get total number of products in the vector store
         """
-        if self.index:
+        if self.index and FAISS_AVAILABLE:
             return self.index.ntotal
-        elif self.df is not None:
+        elif PANDAS_AVAILABLE and self.df is not None:
             return len(self.df)
+        elif self.products_data:
+            return len(self.products_data)
         else:
             return 0
     

@@ -1,13 +1,29 @@
-import pandas as pd
-import numpy as np
 import tiktoken
 import concurrent.futures
 from openai import AsyncOpenAI
-from tqdm import tqdm
-from typing import List
+from typing import List, Dict, Any, Union
 from app.config import settings
 from app.utils.retry import openai_retry
 from app.utils.logging import get_logger
+
+# Optional heavy dependencies
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+try:
+    from tqdm import tqdm
+    TQDM_AVAILABLE = True
+except ImportError:
+    TQDM_AVAILABLE = False
 
 logger = get_logger(__name__)
 
@@ -71,12 +87,23 @@ class EmbeddingGenerator:
         all_embeddings = []
         batches = list(self.batchify(truncated_corpus, batch_size))
         
-        with tqdm(total=len(corpus), desc="Generating embeddings") as pbar:
-            for batch in batches:
+        # Use tqdm if available, otherwise simple iteration
+        if TQDM_AVAILABLE:
+            with tqdm(total=len(corpus), desc="Generating embeddings") as pbar:
+                for batch in batches:
+                    try:
+                        batch_embeddings = await self.get_embeddings(batch)
+                        all_embeddings.extend(batch_embeddings)
+                        pbar.update(len(batch))
+                    except Exception as e:
+                        logger.error(f"Failed to generate embeddings for batch: {e}")
+                        raise
+        else:
+            for i, batch in enumerate(batches):
                 try:
+                    logger.info(f"Processing batch {i+1}/{len(batches)}")
                     batch_embeddings = await self.get_embeddings(batch)
                     all_embeddings.extend(batch_embeddings)
-                    pbar.update(len(batch))
                 except Exception as e:
                     logger.error(f"Failed to generate embeddings for batch: {e}")
                     raise
@@ -84,32 +111,45 @@ class EmbeddingGenerator:
         logger.info("Successfully generated all embeddings")
         return all_embeddings
     
-    def create_rich_description(self, row: pd.Series) -> str:
+    def create_rich_description(self, product_data: Union[Dict, Any]) -> str:
         """
         Create rich description for embedding from product data
-        Following cookbook's approach to combine multiple fields
+        Works with both dict and pandas Series
         """
+        # Handle both dict and pandas Series
+        if hasattr(product_data, 'get'):
+            # Dict-like access
+            get_value = lambda key: product_data.get(key, '')
+        else:
+            # Pandas Series access
+            get_value = lambda key: getattr(product_data, key, '')
+        
         parts = [
-            row['productDisplayName'],
-            f"{row['articleType']} in {row['baseColour']}",
-            f"for {row['usage']} wear",
-            f"{row['gender']} clothing"
+            get_value('productDisplayName'),
+            f"{get_value('articleType')} in {get_value('baseColour')}",
+            f"for {get_value('usage')} wear",
+            f"{get_value('gender')} clothing"
         ]
         
         # Add season if available
-        if pd.notna(row.get('season')):
-            parts.append(f"{row['season']} season")
+        season = get_value('season')
+        if season and str(season).lower() not in ['', 'nan', 'none']:
+            parts.append(f"{season} season")
         
-        return " - ".join(parts)
+        return " - ".join(filter(None, parts))
     
     async def generate_embeddings_for_dataframe(
         self, 
-        df: pd.DataFrame, 
+        df, 
         description_column: str = None
-    ) -> pd.DataFrame:
+    ):
         """
         Generate embeddings for a DataFrame of products
+        Only works if pandas is available
         """
+        if not PANDAS_AVAILABLE:
+            raise ImportError("pandas is required for DataFrame operations")
+            
         if description_column:
             descriptions = df[description_column].astype(str).tolist()
         else:
@@ -126,4 +166,34 @@ class EmbeddingGenerator:
         df_with_embeddings = df.copy()
         df_with_embeddings['embeddings'] = embeddings
         
-        return df_with_embeddings 
+        return df_with_embeddings
+    
+    async def generate_embeddings_for_products(
+        self,
+        products_data: List[Dict],
+        description_column: str = None
+    ) -> List[Dict]:
+        """
+        Generate embeddings for a list of product dictionaries
+        Works without pandas
+        """
+        if description_column:
+            descriptions = [str(product.get(description_column, '')) for product in products_data]
+        else:
+            # Create rich descriptions
+            descriptions = [
+                self.create_rich_description(product) 
+                for product in products_data
+            ]
+        
+        # Generate embeddings
+        embeddings = await self.embed_corpus(descriptions)
+        
+        # Add embeddings to product data
+        products_with_embeddings = []
+        for product, embedding in zip(products_data, embeddings):
+            product_copy = product.copy()
+            product_copy['embeddings'] = embedding
+            products_with_embeddings.append(product_copy)
+        
+        return products_with_embeddings 
