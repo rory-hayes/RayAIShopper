@@ -253,11 +253,26 @@ export const convertToUserProfile = (formData: any): UserProfile => {
 
 export const convertFromBase64 = (base64String: any): string => {
   // Handle non-string inputs safely
-  if (!base64String || typeof base64String !== 'string') {
-    console.warn('convertFromBase64 received non-string input:', base64String)
+  if (!base64String) {
+    console.warn('convertFromBase64 received null/undefined input')
     return ''
   }
   
-  // Remove data:image/jpeg;base64, prefix if present
-  return base64String.replace(/^data:image\/[a-z]+;base64,/, '')
+  if (typeof base64String !== 'string') {
+    console.warn('convertFromBase64 received non-string input:', typeof base64String, base64String)
+    return ''
+  }
+  
+  if (base64String.trim() === '') {
+    console.warn('convertFromBase64 received empty string')
+    return ''
+  }
+  
+  try {
+    // Remove data:image/jpeg;base64, prefix if present
+    return base64String.replace(/^data:image\/[a-z]+;base64,/, '')
+  } catch (error) {
+    console.error('Error in convertFromBase64 replace operation:', error, base64String?.substring(0, 50))
+    return ''
+  }
 } 

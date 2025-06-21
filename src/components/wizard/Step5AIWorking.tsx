@@ -17,12 +17,33 @@ export const Step5AIWorking: React.FC = () => {
         const userProfile = convertToUserProfile(formData)
         console.log('User Profile:', userProfile)
 
-        // Prepare inspiration images if any
-        const inspirationImages = formData.inspirationImages?.filter((img: any) => 
-          img && typeof img === 'string' && img.trim() !== ''
-        ).map((img: string) => 
-          convertFromBase64(img)
-        ).filter((img: string) => img !== '') || []
+        // Prepare inspiration images with robust error handling
+        let inspirationImages: string[] = []
+        try {
+          if (formData.inspirationImages && Array.isArray(formData.inspirationImages)) {
+            inspirationImages = formData.inspirationImages
+              .filter((img: any) => {
+                // Only process valid string images
+                if (!img || typeof img !== 'string' || img.trim() === '') {
+                  console.warn('Skipping invalid image:', typeof img, img)
+                  return false
+                }
+                return true
+              })
+              .map((img: string) => {
+                try {
+                  return convertFromBase64(img)
+                } catch (error) {
+                  console.error('Error converting image:', error, img?.substring(0, 50))
+                  return ''
+                }
+              })
+              .filter((img: string) => img !== '')
+          }
+        } catch (error) {
+          console.error('Error processing inspiration images:', error)
+          inspirationImages = []
+        }
         
         console.log('Inspiration Images Count:', inspirationImages.length)
         console.log('Form Data:', formData)
