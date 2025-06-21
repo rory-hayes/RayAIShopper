@@ -59,7 +59,7 @@ In your Vercel dashboard:
 3. Add these variables:
 
 ```
-OPENAI_API_KEY=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
+OPENAI_API_KEY=your-openai-api-key-here
 ENVIRONMENT=production
 LOG_LEVEL=INFO
 ```
