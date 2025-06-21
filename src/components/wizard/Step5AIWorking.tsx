@@ -7,15 +7,23 @@ export const Step5AIWorking: React.FC = () => {
   const { formData, nextStep, updateFormData } = useWizard()
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing')
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const [hasProcessed, setHasProcessed] = useState(false)
 
   useEffect(() => {
-    let isMounted = true // Prevent double execution in React StrictMode
+    // Skip if we already have recommendations or have already processed
+    if (formData.selectedItems.length > 0 || hasProcessed) {
+      console.log('🔥 DEBUG: Skipping API call - already have recommendations or processed')
+      setStatus('success')
+      setTimeout(() => nextStep(), 1500)
+      return
+    }
 
     const processRecommendations = async () => {
-      if (!isMounted) return // Exit early if component unmounted
-
       try {
+        setHasProcessed(true) // Mark as processed immediately to prevent double execution
         setStatus('processing')
+
+        console.log('🔥 DEBUG: Starting API call...')
 
         // Convert form data to API format
         const userProfile = convertToUserProfile(formData)
@@ -59,8 +67,6 @@ export const Step5AIWorking: React.FC = () => {
           exclude_ids: [] // No exclusions on first request
         })
         
-        if (!isMounted) return // Exit early if component unmounted during API call
-
         console.log('API Response:', response)
         console.log('Response recommendations count:', response.recommendations?.length)
         console.log('First recommendation:', response.recommendations?.[0])
@@ -80,53 +86,45 @@ export const Step5AIWorking: React.FC = () => {
 
         // Update form data with real recommendations
         try {
-          updateFormData({
-            selectedItems: response.recommendations.map((item, index) => {
-              console.log(`Processing item ${index}:`, item)
-              return {
-                id: item.id,
-                name: item.name,
-                category: item.category,
-                price: Math.floor(Math.random() * 200) + 50, // Mock price for now
-                image: item.image_url,
-                description: `${item.article_type} in ${item.color}`,
-                inStock: true,
-                storeLocation: item.store_location || 'A1-B2',
-                similarity_score: item.similarity_score,
-                article_type: item.article_type,
-                color: item.color,
-                usage: item.usage
-              }
-            })
+          const selectedItems = response.recommendations.map((item, index) => {
+            console.log(`Processing item ${index}:`, item)
+            return {
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              price: Math.floor(Math.random() * 200) + 50, // Mock price for now
+              image: item.image_url,
+              description: `${item.article_type} in ${item.color}`,
+              inStock: true,
+              storeLocation: item.store_location || 'A1-B2',
+              similarity_score: item.similarity_score,
+              article_type: item.article_type,
+              color: item.color,
+              usage: item.usage
+            }
           })
+          
+          updateFormData({ selectedItems })
           console.log('Successfully updated form data with real recommendations')
         } catch (mappingError) {
           console.error('Error mapping recommendations:', mappingError)
           throw new Error(`Failed to process recommendations: ${mappingError}`)
         }
 
-        if (!isMounted) return // Exit early if component unmounted
-
         setStatus('success')
         
         // Move to next step after brief success display
         setTimeout(() => {
-          if (isMounted) {
-            nextStep()
-          }
+          nextStep()
         }, 1500)
 
       } catch (error) {
-        if (!isMounted) return // Exit early if component unmounted
-
         console.error('Error fetching recommendations:', error)
         setStatus('error')
         setErrorMessage(error instanceof Error ? error.message : 'Failed to get recommendations')
         
-        // Fallback to mock data after 8 seconds (increased from 3)
+        // Fallback to mock data after 5 seconds
         setTimeout(() => {
-          if (!isMounted) return // Exit early if component unmounted
-
           console.log('Using fallback mock data after API timeout/error')
           // Use mock data as fallback
           updateFormData({
@@ -154,17 +152,12 @@ export const Step5AIWorking: React.FC = () => {
             ]
           })
           nextStep()
-        }, 8000) // Increased timeout to 8 seconds
+        }, 5000)
       }
     }
 
     processRecommendations()
-
-    // Cleanup function to prevent double execution
-    return () => {
-      isMounted = false
-    }
-  }, [formData, nextStep, updateFormData])
+  }, []) // Empty dependency array to run only once
 
   const renderContent = () => {
     switch (status) {
