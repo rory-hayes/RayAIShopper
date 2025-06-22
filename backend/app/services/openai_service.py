@@ -461,33 +461,68 @@ Focus on actionable details that would help find similar clothing items."""
     @openai_retry
     async def analyze_user_selfie(self, user_image_b64: str) -> Dict[str, Any]:
         """
-        Analyze user's selfie with GPT-4o Vision to extract detailed characteristics
-        for high-fidelity virtual try-on generation
+        Enhanced analysis of user's selfie with GPT-4o Vision for high-fidelity virtual try-on
+        Extracts detailed characteristics to preserve person's identity in generated images
         """
-        system_prompt = """You are a professional fashion stylist and image analyst. Analyze this person's photo and extract detailed characteristics that will help create a virtual try-on image that looks as close as possible to the original person.
+        system_prompt = """You are a professional portrait photographer and facial analysis expert. Analyze this person's photo with extreme detail to preserve their exact appearance in virtual try-on generation.
 
-        Focus on:
-        1. Physical characteristics (age range, build, posture)
-        2. Facial features (hair color/style, skin tone, facial structure)
-        3. Current pose and angle
-        4. Background and lighting
-        5. Current clothing style visible
-        6. Overall aesthetic and vibe
+        Focus on capturing:
+        1. FACIAL FEATURES: Exact details that make this person unique
+        2. PHYSICAL CHARACTERISTICS: Body type, posture, distinctive features  
+        3. POSE & EXPRESSION: Head angle, body position, facial expression
+        4. LIGHTING & ENVIRONMENT: Light direction, intensity, background
+        5. PHOTOGRAPHY STYLE: Camera angle, framing, aesthetic
 
-        Return detailed JSON with specific descriptive terms that can be used in DALL-E prompts."""
+        Be extremely specific - these details will be used to recreate this exact person in AI-generated images."""
 
-        user_prompt = """Analyze this person's photo and provide detailed characteristics for virtual try-on generation. Be specific about physical features, pose, lighting, and style that should be preserved in a generated image.
+        user_prompt = """Analyze this person's selfie with maximum detail for virtual try-on generation. I need to preserve their exact appearance when showing them wearing different clothes.
 
-        Return JSON format:
+        Return detailed JSON with specific descriptive terms:
         {
-            "physical_description": "detailed description of the person",
-            "facial_features": "hair, skin tone, facial structure details",
-            "pose_and_angle": "current pose, angle, body position",
-            "lighting_and_background": "lighting style, background description",
-            "current_style": "visible clothing and style elements",
-            "age_range": "estimated age range",
-            "build_type": "body type/build description",
-            "overall_vibe": "aesthetic and mood of the photo"
+            "facial_features": {
+                "face_shape": "oval/round/square/heart/diamond",
+                "eye_color": "specific color",
+                "eye_shape": "almond/round/hooded etc",
+                "eyebrow_style": "thick/thin/arched etc",
+                "nose_shape": "straight/button/aquiline etc",
+                "lip_shape": "full/thin/bow-shaped etc",
+                "skin_tone": "fair/medium/olive/dark with undertones",
+                "distinctive_features": "freckles/dimples/moles/scars etc"
+            },
+            "hair_details": {
+                "color": "exact color description",
+                "style": "short/long/curly/straight/wavy",
+                "texture": "fine/thick/coarse",
+                "length": "specific length description"
+            },
+            "physical_build": {
+                "body_type": "petite/average/tall/athletic etc",
+                "build": "slim/average/curvy/muscular etc",
+                "posture": "straight/relaxed/confident etc"
+            },
+            "pose_and_expression": {
+                "head_angle": "straight/tilted left/right",
+                "body_orientation": "facing camera/3-quarter turn etc",
+                "facial_expression": "smiling/serious/neutral etc",
+                "eye_contact": "direct/looking away etc"
+            },
+            "lighting_and_setting": {
+                "lighting_type": "natural/artificial/studio",
+                "light_direction": "front/side/top",
+                "lighting_quality": "soft/harsh/diffused",
+                "background": "plain/indoor/outdoor/textured",
+                "background_color": "specific color if visible",
+                "overall_mood": "bright/moody/professional etc"
+            },
+            "photography_style": {
+                "camera_angle": "eye level/slightly above/below",
+                "framing": "headshot/bust/full body",
+                "photo_quality": "professional/casual/phone selfie",
+                "image_sharpness": "crisp/soft/slightly blurred"
+            },
+            "age_range": "specific age estimate",
+            "gender_presentation": "masculine/feminine/androgynous",
+            "overall_vibe": "confident/casual/professional/artistic etc"
         }"""
 
         try:
@@ -506,28 +541,163 @@ Focus on actionable details that would help find similar clothing items."""
                         ]
                     }
                 ],
-                max_tokens=500,
+                max_tokens=800,  # Increased for detailed analysis
                 temperature=0.1,
                 response_format={"type": "json_object"}
             )
             
             analysis = json.loads(response.choices[0].message.content)
-            logger.info("Analyzed user selfie with GPT-4o Vision")
+            logger.info("Enhanced user selfie analysis completed with detailed characteristics")
             return analysis
             
         except Exception as e:
-            logger.error(f"Error analyzing user selfie: {e}")
-            # Return fallback analysis
+            logger.error(f"Error in enhanced selfie analysis: {e}")
+            # Return detailed fallback analysis
             return {
-                "physical_description": "a person",
-                "facial_features": "natural features",
-                "pose_and_angle": "standing naturally",
-                "lighting_and_background": "natural lighting",
-                "current_style": "casual style",
+                "facial_features": {
+                    "face_shape": "oval",
+                    "eye_color": "brown",
+                    "skin_tone": "medium with warm undertones",
+                    "distinctive_features": "natural features"
+                },
+                "hair_details": {
+                    "color": "dark brown",
+                    "style": "medium length",
+                    "texture": "natural"
+                },
+                "physical_build": {
+                    "body_type": "average",
+                    "build": "average build",
+                    "posture": "natural posture"
+                },
+                "pose_and_expression": {
+                    "head_angle": "straight",
+                    "facial_expression": "natural expression",
+                    "eye_contact": "looking at camera"
+                },
+                "lighting_and_setting": {
+                    "lighting_type": "natural lighting",
+                    "background": "neutral background",
+                    "overall_mood": "natural"
+                },
+                "photography_style": {
+                    "camera_angle": "eye level",
+                    "framing": "portrait"
+                },
                 "age_range": "adult",
-                "build_type": "average build",
+                "gender_presentation": "natural",
                 "overall_vibe": "friendly and approachable"
             }
+
+    @openai_retry
+    async def analyze_product_image(self, product_item: ProductItem) -> Dict[str, Any]:
+        """
+        Analyze the actual product image to get precise visual details for virtual try-on
+        This replaces generic text descriptions with actual visual analysis
+        """
+        if not product_item.image_url:
+            logger.warning(f"No image URL for product {product_item.id}")
+            return self._get_fallback_product_description(product_item)
+
+        system_prompt = """You are a fashion expert and product photographer. Analyze this clothing item image with extreme detail for virtual try-on generation.
+
+        Focus on:
+        1. EXACT VISUAL APPEARANCE: Colors, patterns, textures, materials
+        2. GARMENT CONSTRUCTION: Cut, fit, silhouette, design details
+        3. STYLING ELEMENTS: Necklines, sleeves, hemlines, closures
+        4. FABRIC CHARACTERISTICS: Drape, structure, weight, finish
+        5. DESIGN DETAILS: Buttons, zippers, embellishments, prints
+
+        Be extremely specific about what you see - this will be used to recreate this exact item on a person."""
+
+        user_prompt = """Analyze this clothing item image in detail for virtual try-on generation. I need to accurately show this exact item being worn by someone.
+
+        Return detailed JSON:
+        {
+            "item_type": "specific garment type",
+            "visual_description": {
+                "primary_color": "exact color name and shade",
+                "secondary_colors": ["any accent colors"],
+                "pattern": "solid/striped/floral/geometric/etc",
+                "pattern_details": "specific pattern description if any",
+                "fabric_type": "cotton/silk/denim/knit/etc",
+                "fabric_texture": "smooth/textured/ribbed/etc",
+                "fabric_weight": "lightweight/medium/heavy",
+                "fabric_finish": "matte/shiny/satin/etc"
+            },
+            "garment_details": {
+                "silhouette": "fitted/loose/oversized/tailored/etc",
+                "neckline": "crew/v-neck/scoop/high-neck/etc",
+                "sleeve_type": "short/long/sleeveless/3-quarter/etc",
+                "sleeve_style": "fitted/loose/bell/etc",
+                "hemline": "cropped/regular/long/etc",
+                "closure_type": "buttons/zipper/pullover/etc",
+                "fit_style": "slim/regular/relaxed/oversized"
+            },
+            "design_elements": {
+                "embellishments": "buttons/sequins/embroidery/none",
+                "hardware": "zippers/buckles/grommets/none",
+                "special_features": "pockets/hood/collar/etc",
+                "trim_details": "piping/contrast stitching/etc"
+            },
+            "styling_context": {
+                "formality_level": "casual/business casual/formal/etc",
+                "season": "spring/summer/fall/winter/year-round",
+                "occasion": "everyday/work/party/etc",
+                "styling_suggestions": "how this item typically fits and drapes"
+            },
+            "brand_style": "if visible, brand aesthetic",
+            "overall_vibe": "classic/trendy/edgy/romantic/etc"
+        }"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",  # Use GPT-4o for vision analysis
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user", 
+                        "content": [
+                            {"type": "text", "text": user_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": product_item.image_url}
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=600,
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            analysis = json.loads(response.choices[0].message.content)
+            logger.info(f"Detailed product image analysis completed for {product_item.id}")
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing product image for {product_item.id}: {e}")
+            return self._get_fallback_product_description(product_item)
+
+    def _get_fallback_product_description(self, product_item: ProductItem) -> Dict[str, Any]:
+        """Fallback product description when image analysis fails"""
+        return {
+            "item_type": product_item.article_type or "clothing item",
+            "visual_description": {
+                "primary_color": product_item.color or "neutral",
+                "fabric_type": "quality fabric",
+                "fabric_texture": "smooth"
+            },
+            "garment_details": {
+                "silhouette": "well-fitted",
+                "fit_style": "regular"
+            },
+            "styling_context": {
+                "formality_level": "versatile",
+                "occasion": product_item.usage or "everyday wear"
+            },
+            "overall_vibe": "stylish and comfortable"
+        }
 
     @openai_retry
     async def generate_virtual_tryon(
@@ -537,105 +707,206 @@ Focus on actionable details that would help find similar clothing items."""
         style_prompt: str = None
     ) -> Tuple[str, str]:
         """
-        Generate high-fidelity virtual try-on image using DALL-E
-        First analyzes the user's selfie, then creates a detailed prompt for maximum similarity
+        Generate ultra-high-fidelity virtual try-on using detailed analysis of both user and product
         Returns (image_url, generation_prompt)
         """
         try:
-            # Step 1: Analyze the user's selfie to extract characteristics
-            logger.info(f"Analyzing user selfie for virtual try-on with product {product_item.id}")
+            logger.info(f"Starting enhanced virtual try-on generation for product {product_item.id}")
+            
+            # Step 1: Detailed analysis of user's selfie
+            logger.info("Analyzing user selfie with enhanced detail...")
             user_analysis = await self.analyze_user_selfie(user_image_b64)
             
-            # Step 2: Create detailed DALL-E prompt combining user characteristics with product
+            # Step 2: Detailed analysis of product image
+            logger.info("Analyzing product image for exact visual details...")
+            product_analysis = await self.analyze_product_image(product_item)
+            
+            # Step 3: Construct ultra-detailed DALL-E prompt
             prompt_parts = []
             
-            # Start with the analyzed person description
-            if user_analysis.get("physical_description"):
-                prompt_parts.append(user_analysis["physical_description"])
-            
-            # Add facial features for consistency
+            # Person identity preservation (most important)
             if user_analysis.get("facial_features"):
-                prompt_parts.append(f"with {user_analysis['facial_features']}")
+                facial = user_analysis["facial_features"]
+                person_desc = f"A person with {facial.get('face_shape', 'natural')} face shape"
+                
+                if facial.get("skin_tone"):
+                    person_desc += f", {facial['skin_tone']} skin"
+                
+                if facial.get("eye_color") and facial.get("eye_shape"):
+                    person_desc += f", {facial['eye_shape']} {facial['eye_color']} eyes"
+                
+                if facial.get("distinctive_features") and facial['distinctive_features'] != "natural features":
+                    person_desc += f", {facial['distinctive_features']}"
+                
+                prompt_parts.append(person_desc)
             
-            # Add the product they're wearing
-            product_description = f"wearing {product_item.name}"
-            if product_item.article_type and product_item.article_type.lower() not in product_item.name.lower():
-                product_description += f", {product_item.article_type}"
-            if product_item.color and product_item.color.lower() not in product_item.name.lower():
-                product_description += f" in {product_item.color}"
+            # Hair details
+            if user_analysis.get("hair_details"):
+                hair = user_analysis["hair_details"]
+                hair_desc = f"{hair.get('color', 'natural')} {hair.get('style', 'hair')}"
+                if hair.get("length"):
+                    hair_desc += f", {hair['length']}"
+                prompt_parts.append(f"with {hair_desc}")
             
-            prompt_parts.append(product_description)
+            # Physical build and posture
+            if user_analysis.get("physical_build"):
+                build = user_analysis["physical_build"]
+                build_desc = f"{build.get('body_type', 'average')} {build.get('build', 'build')}"
+                if build.get("posture"):
+                    build_desc += f", {build['posture']}"
+                prompt_parts.append(build_desc)
             
-            # Add pose and positioning
-            if user_analysis.get("pose_and_angle"):
-                prompt_parts.append(user_analysis["pose_and_angle"])
+            # Product details from actual image analysis
+            if product_analysis.get("visual_description"):
+                visual = product_analysis["visual_description"]
+                garment = product_analysis.get("garment_details", {})
+                
+                # Build detailed product description
+                product_desc = f"wearing {product_analysis.get('item_type', product_item.name)}"
+                
+                # Add color details
+                if visual.get("primary_color"):
+                    product_desc += f" in {visual['primary_color']}"
+                
+                # Add fabric and texture
+                if visual.get("fabric_type"):
+                    product_desc += f", {visual['fabric_type']} fabric"
+                
+                if visual.get("fabric_texture") and visual['fabric_texture'] != "smooth":
+                    product_desc += f" with {visual['fabric_texture']} texture"
+                
+                # Add fit and silhouette
+                if garment.get("silhouette"):
+                    product_desc += f", {garment['silhouette']} fit"
+                
+                # Add specific garment details
+                if garment.get("neckline") and garment['neckline'] != "regular":
+                    product_desc += f", {garment['neckline']} neckline"
+                
+                if garment.get("sleeve_type") and garment['sleeve_type'] != "regular":
+                    product_desc += f", {garment['sleeve_type']} sleeves"
+                
+                prompt_parts.append(product_desc)
             
-            # Add lighting and background for consistency
-            if user_analysis.get("lighting_and_background"):
-                prompt_parts.append(user_analysis["lighting_and_background"])
+            # Pose and expression preservation
+            if user_analysis.get("pose_and_expression"):
+                pose = user_analysis["pose_and_expression"]
+                pose_desc = ""
+                
+                if pose.get("facial_expression"):
+                    pose_desc += f"{pose['facial_expression']}"
+                
+                if pose.get("head_angle") and pose['head_angle'] != "straight":
+                    pose_desc += f", {pose['head_angle']}"
+                
+                if pose.get("body_orientation"):
+                    pose_desc += f", {pose['body_orientation']}"
+                
+                if pose_desc:
+                    prompt_parts.append(pose_desc)
             
-            # Add style context
-            style_context = f"{product_item.usage} style" if product_item.usage else "casual style"
-            if user_analysis.get("overall_vibe"):
-                style_context += f", {user_analysis['overall_vibe']}"
-            prompt_parts.append(style_context)
+            # Lighting and environment preservation
+            if user_analysis.get("lighting_and_setting"):
+                lighting = user_analysis["lighting_and_setting"]
+                lighting_desc = ""
+                
+                if lighting.get("lighting_type"):
+                    lighting_desc += f"{lighting['lighting_type']} lighting"
+                
+                if lighting.get("light_direction") and lighting['light_direction'] != "front":
+                    lighting_desc += f" from {lighting['light_direction']}"
+                
+                if lighting.get("background") and lighting['background'] != "plain":
+                    lighting_desc += f", {lighting['background']} background"
+                
+                if lighting_desc:
+                    prompt_parts.append(lighting_desc)
             
-            # Add quality and photography style
-            prompt_parts.append("high quality portrait photography, photorealistic, detailed, sharp focus")
+            # Photography style and quality
+            photo_style = "high-quality portrait photography, photorealistic, detailed, sharp focus"
+            if user_analysis.get("photography_style"):
+                style = user_analysis["photography_style"]
+                if style.get("camera_angle"):
+                    photo_style += f", {style['camera_angle']} camera angle"
+                if style.get("framing"):
+                    photo_style += f", {style['framing']} framing"
+            
+            prompt_parts.append(photo_style)
+            
+            # Add identity preservation keywords
+            prompt_parts.append("maintaining exact facial features and identity, same person, identical appearance")
             
             # Add custom style prompt if provided
             if style_prompt:
                 prompt_parts.append(style_prompt)
             
             # Combine all parts into final prompt
-            full_prompt = ", ".join(prompt_parts)
+            full_prompt = ", ".join([part for part in prompt_parts if part])
             
             # Ensure prompt isn't too long (DALL-E has limits)
             if len(full_prompt) > 1000:
-                # Prioritize most important elements
+                # Prioritize most important elements for identity preservation
                 essential_parts = [
-                    user_analysis.get("physical_description", "a person"),
-                    user_analysis.get("facial_features", ""),
-                    product_description,
-                    user_analysis.get("pose_and_angle", ""),
-                    "high quality portrait photography, photorealistic"
+                    prompt_parts[0] if len(prompt_parts) > 0 else "A person",  # Person description
+                    prompt_parts[1] if len(prompt_parts) > 1 else "",  # Hair
+                    [p for p in prompt_parts if "wearing" in p][0] if any("wearing" in p for p in prompt_parts) else f"wearing {product_item.name}",  # Product
+                    photo_style,
+                    "maintaining exact facial features and identity, same person"
                 ]
                 full_prompt = ", ".join([part for part in essential_parts if part])
             
-            logger.info(f"Generated detailed prompt for virtual try-on: {full_prompt[:200]}...")
+            logger.info(f"Generated ultra-detailed prompt for virtual try-on (length: {len(full_prompt)})")
+            logger.info(f"Prompt preview: {full_prompt[:200]}...")
             
-            # Step 3: Generate image with DALL-E
+            # Step 4: Generate image with DALL-E using enhanced prompt
             response = await self.client.images.generate(
                 model="dall-e-3",
                 prompt=full_prompt,
                 size="1024x1024",
-                quality="hd",  # Use HD quality for better results
-                style="natural",  # Natural style for realistic photos
+                quality="hd",  # Use HD quality for maximum realism
+                style="natural",  # Natural style for photorealistic results
                 n=1
             )
             
             image_url = response.data[0].url
-            logger.info(f"Successfully generated high-fidelity virtual try-on for product {product_item.id}")
+            logger.info(f"Successfully generated enhanced virtual try-on for product {product_item.id}")
             return image_url, full_prompt
             
         except Exception as e:
-            logger.error(f"Error generating virtual try-on: {e}")
-            # Fallback to basic generation if detailed analysis fails
+            logger.error(f"Error in enhanced virtual try-on generation: {e}")
+            # Enhanced fallback with basic product analysis
             try:
-                basic_prompt = f"A person wearing {product_item.name}, {product_item.article_type} in {product_item.color}, high quality portrait photography, photorealistic"
+                logger.info("Attempting enhanced fallback generation...")
+                
+                # Get basic user characteristics
+                basic_user = "A person"
+                if user_analysis and user_analysis.get("facial_features"):
+                    facial = user_analysis["facial_features"]
+                    basic_user += f" with {facial.get('skin_tone', 'natural')} skin"
+                    if facial.get("eye_color"):
+                        basic_user += f" and {facial['eye_color']} eyes"
+                
+                # Use product metadata as fallback
+                product_desc = f"wearing {product_item.name}"
+                if product_item.article_type:
+                    product_desc += f", {product_item.article_type}"
+                if product_item.color:
+                    product_desc += f" in {product_item.color}"
+                
+                fallback_prompt = f"{basic_user} {product_desc}, high quality portrait photography, photorealistic, maintaining facial features"
                 
                 response = await self.client.images.generate(
                     model="dall-e-3",
-                    prompt=basic_prompt,
+                    prompt=fallback_prompt,
                     size="1024x1024",
                     quality="standard",
                     n=1
                 )
                 
                 image_url = response.data[0].url
-                logger.info(f"Generated fallback virtual try-on for product {product_item.id}")
-                return image_url, basic_prompt
+                logger.info(f"Generated enhanced fallback virtual try-on for product {product_item.id}")
+                return image_url, fallback_prompt
                 
             except Exception as fallback_error:
-                logger.error(f"Fallback virtual try-on generation also failed: {fallback_error}")
+                logger.error(f"Enhanced fallback generation also failed: {fallback_error}")
                 raise 

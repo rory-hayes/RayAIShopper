@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Download, Share, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from './Button'
 import { virtualTryOn, EnhancedTryonRequest, EnhancedTryonResponse } from '../../services/api'
+import { useWizard } from '../../contexts/WizardContext'
 
 interface VirtualTryOnModalProps {
   isOpen: boolean
@@ -24,6 +25,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
   const [tryOnResult, setTryOnResult] = useState<EnhancedTryonResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
+  const { formData } = useWizard()
 
   // Reset state when modal opens
   useEffect(() => {
@@ -50,6 +52,49 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
     }
   }, [isGenerating])
 
+  // Create enhanced style prompt with user context
+  const createEnhancedStylePrompt = (): string => {
+    const styleElements = []
+    
+    // Add user's preferred styles
+    if (formData.preferredStyles && formData.preferredStyles.length > 0) {
+      styleElements.push(`${formData.preferredStyles.join(' and ')} style`)
+    }
+    
+    // Add shopping context
+    if (formData.shoppingPrompt) {
+      // Extract occasion/context from shopping prompt
+      const prompt = formData.shoppingPrompt.toLowerCase()
+      if (prompt.includes('work') || prompt.includes('office') || prompt.includes('professional')) {
+        styleElements.push('professional setting')
+      } else if (prompt.includes('party') || prompt.includes('night') || prompt.includes('event')) {
+        styleElements.push('evening occasion')
+      } else if (prompt.includes('casual') || prompt.includes('everyday') || prompt.includes('weekend')) {
+        styleElements.push('casual everyday wear')
+      } else if (prompt.includes('date') || prompt.includes('dinner')) {
+        styleElements.push('stylish dinner setting')
+      }
+    }
+    
+    // Add color preferences if they match the product
+    if (formData.preferredColors && formData.preferredColors.length > 0) {
+      styleElements.push('with coordinated colors')
+    }
+    
+    // Base prompt with product name
+    let basePrompt = `wearing ${productName}`
+    
+    // Add style context
+    if (styleElements.length > 0) {
+      basePrompt += `, ${styleElements.join(', ')}`
+    }
+    
+    // Add photography style for realism
+    basePrompt += ', high-quality fashion photography, natural lighting, photorealistic portrait'
+    
+    return basePrompt
+  }
+
   const generateTryOn = async () => {
     if (!userSelfie) {
       setError('No selfie available. Please go back to Step 4 to upload a selfie.')
@@ -61,18 +106,23 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
     setProgress(10)
 
     try {
+      // Create enhanced style prompt with user context
+      const enhancedStylePrompt = createEnhancedStylePrompt()
+      
       const request: EnhancedTryonRequest = {
         product_id: productId,
         user_image: userSelfie,
-        style_prompt: `wearing ${productName}, fashion photography style`
+        style_prompt: enhancedStylePrompt
       }
 
-      console.log('🔥 TRYON: Starting virtual try-on generation...')
+      console.log('🔥 TRYON: Starting enhanced virtual try-on generation...')
+      console.log('🎨 TRYON: Enhanced style prompt:', enhancedStylePrompt)
+      
       const result = await virtualTryOn(request)
       
       setProgress(100)
       setTryOnResult(result)
-      console.log('✅ TRYON: Successfully generated virtual try-on')
+      console.log('✅ TRYON: Successfully generated enhanced virtual try-on')
       
     } catch (err) {
       console.error('❌ TRYON: Generation failed:', err)
@@ -120,7 +170,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center">
             <Sparkles className="h-5 w-5 text-purple-600 mr-2" />
-            <h2 className="text-xl font-semibold text-gray-900">Virtual Try-On</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Enhanced Virtual Try-On</h2>
           </div>
           <button
             onClick={onClose}
@@ -140,9 +190,12 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
               </div>
               
               <div className="space-y-2">
-                <h3 className="text-lg font-medium text-gray-900">Creating your virtual try-on...</h3>
+                <h3 className="text-lg font-medium text-gray-900">Creating your personalized try-on...</h3>
                 <p className="text-sm text-gray-600">
-                  AI is analyzing your photo and generating a personalized image
+                  AI is analyzing your selfie and the product image for maximum accuracy
+                </p>
+                <p className="text-xs text-gray-500">
+                  Using your style preferences: {formData.preferredStyles?.join(', ') || 'Classic style'}
                 </p>
               </div>
 
@@ -155,7 +208,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
               </div>
               
               <p className="text-xs text-gray-500">
-                This usually takes 10-15 seconds...
+                Enhanced analysis takes 15-20 seconds for best results...
               </p>
             </div>
           )}
@@ -189,7 +242,12 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
             <div className="space-y-4">
               <div className="text-center">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Here's how you look!</h3>
-                <p className="text-sm text-gray-600">AI-generated virtual try-on of {productName}</p>
+                <p className="text-sm text-gray-600">AI-enhanced virtual try-on of {productName}</p>
+                {tryOnResult.generation_prompt && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Generated with your personal style preferences
+                  </p>
+                )}
               </div>
 
               {/* Image Comparison */}
@@ -211,7 +269,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
                     alt="Virtual try-on result"
                     className="w-full h-48 object-cover rounded-lg border border-gray-200"
                   />
-                  <p className="text-xs text-center text-gray-500">Virtual Try-On</p>
+                  <p className="text-xs text-center text-gray-500">Enhanced Try-On</p>
                 </div>
               </div>
 
