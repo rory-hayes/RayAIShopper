@@ -251,7 +251,8 @@ class VectorSearchService:
         query_embedding: List[float], 
         k: int = 20,
         exclude_ids: List[str] = None,
-        search_query: str = None
+        search_query: str = None,
+        gender_filter: str = None
     ) -> List[Tuple[ProductItem, float]]:
         """
         Perform similarity search using embeddings, FAISS, or keyword matching
@@ -261,21 +262,21 @@ class VectorSearchService:
         
         # Use FAISS if available
         if not self.fallback_mode and self.index is not None and FAISS_AVAILABLE:
-            return await self._faiss_search(query_embedding, k, exclude_ids)
+            return await self._faiss_search(query_embedding, k, exclude_ids, gender_filter)
         
         # Use embedding similarity if we have embeddings
         if self.products_with_embeddings:
-            return await self._embedding_similarity_search(query_embedding, k, exclude_ids)
+            return await self._embedding_similarity_search(query_embedding, k, exclude_ids, gender_filter)
         
         # Use keyword-based search as immediate fallback
         if self.products_data:
-            return await self._keyword_similarity_search(k, exclude_ids, search_query)
+            return await self._keyword_similarity_search(k, exclude_ids, search_query, gender_filter)
         
         # Final fallback - this should not happen in production
         logger.error("No data available for similarity search")
         return []
     
-    async def _faiss_search(self, query_embedding: List[float], k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
+    async def _faiss_search(self, query_embedding: List[float], k: int, exclude_ids: List[str], gender_filter: str = None) -> List[Tuple[ProductItem, float]]:
         """
         FAISS-based similarity search
         """
@@ -295,12 +296,14 @@ class VectorSearchService:
                 continue
             
             similarity_score = 1.0 / (1.0 + distance)
+            if gender_filter and product_data.get('gender', '') != gender_filter:
+                continue
             product_item = self._create_product_item(product_data, similarity_score)
             results.append((product_item, similarity_score))
         
         return results
     
-    async def _embedding_similarity_search(self, query_embedding: List[float], k: int, exclude_ids: List[str]) -> List[Tuple[ProductItem, float]]:
+    async def _embedding_similarity_search(self, query_embedding: List[float], k: int, exclude_ids: List[str], gender_filter: str = None) -> List[Tuple[ProductItem, float]]:
         """
         Custom embedding-based similarity search following OpenAI cookbook
         """
@@ -313,6 +316,8 @@ class VectorSearchService:
             
             if 'embedding' in product and product['embedding']:
                 similarity = self.cosine_similarity(query_embedding, product['embedding'])
+                if gender_filter and product['gender'] != gender_filter:
+                    continue
                 similarities.append((product, similarity))
         
         # Sort by similarity (highest first)
@@ -324,13 +329,15 @@ class VectorSearchService:
         # Convert to ProductItem format
         results = []
         for product_data, similarity in top_results:
+            if gender_filter and product_data['gender'] != gender_filter:
+                continue
             product_item = self._create_product_item(product_data, similarity)
             results.append((product_item, similarity))
         
         logger.info(f"Embedding similarity search returned {len(results)} results")
         return results
     
-    async def _keyword_similarity_search(self, k: int, exclude_ids: List[str], search_query: str = None) -> List[Tuple[ProductItem, float]]:
+    async def _keyword_similarity_search(self, k: int, exclude_ids: List[str], search_query: str = None, gender_filter: str = None) -> List[Tuple[ProductItem, float]]:
         """
         Keyword-based similarity search using text matching
         This provides meaningful matching based on user search terms
@@ -351,6 +358,8 @@ class VectorSearchService:
             for product_data in available_products:
                 score = self._calculate_text_similarity(product_data, search_terms)
                 if score > 0:  # Only include products with some relevance
+                    if gender_filter and product_data.get('gender', '') != gender_filter:
+                        continue
                     scored_products.append((product_data, score))
             
             # Sort by score (highest first) and take top k
@@ -366,6 +375,8 @@ class VectorSearchService:
         # Convert to ProductItem format
         results = []
         for product_data, similarity_score in selected_products:
+            if gender_filter and product_data.get('gender', '') != gender_filter:
+                continue
             product_item = self._create_product_item(product_data, similarity_score)
             results.append((product_item, similarity_score))
         
@@ -512,7 +523,8 @@ class VectorSearchService:
         query_embedding: List[float],
         exclude_ids: List[str],
         count: int = 1,
-        search_query: str = None
+        search_query: str = None,
+        gender_filter: str = None
     ) -> List[ProductItem]:
         """
         Get fresh recommendations excluding specified IDs
@@ -522,7 +534,8 @@ class VectorSearchService:
             query_embedding=query_embedding,
             k=count,
             exclude_ids=exclude_ids,
-            search_query=search_query
+            search_query=search_query,
+            gender_filter=gender_filter
         )
         
         return [item for item, _ in results]

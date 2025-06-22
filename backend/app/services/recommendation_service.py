@@ -70,7 +70,8 @@ class RecommendationService:
                 query_embedding=query_embedding,
                 k=min(request.top_k * 2, settings.max_search_results),
                 exclude_ids=exclude_ids,
-                search_query=search_query
+                search_query=search_query,
+                gender_filter=request.user_profile.gender.value
             )
             
             # Extract products from search results
@@ -169,7 +170,8 @@ class RecommendationService:
                 query_embedding=query_embedding,
                 exclude_ids=all_exclude_ids,
                 count=count,
-                search_query=session_data.get("search_query")
+                search_query=session_data.get("search_query"),
+                gender_filter=session_data["user_profile"]["gender"]  # Pass gender from cached profile
             )
             
             # Update session cache with new excludes
