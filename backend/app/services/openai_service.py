@@ -271,10 +271,10 @@ Focus on actionable details that would help find similar clothing items."""
         user_prompt = f"""
         User Profile:
         - Shopping Intent: {user_profile.shopping_prompt}
-        - Gender: {user_profile.gender}
-        - Preferred Styles: {', '.join(user_profile.preferred_styles)}
+        - Gender: {user_profile.gender.value}
+        - Preferred Styles: {', '.join([style.value for style in user_profile.preferred_styles])}
         - Preferred Colors: {', '.join(user_profile.preferred_colors)}
-        - Size: {user_profile.size}
+        - Preferred Article Types: {', '.join(user_profile.preferred_article_types) if user_profile.preferred_article_types else 'Any'}
         
         {f"Inspiration Analysis: {inspiration_text}" if inspiration_text else ""}
         
