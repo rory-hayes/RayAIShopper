@@ -5,7 +5,7 @@ export interface WizardState {
     gender: string
     preferredStyles: string[]
     preferredColors: string[]
-    size: string
+    preferredArticleTypes: string[]
     inspirationImages: File[]
     selfieImage: File | null
     selectedItems: RecommendationItem[]
@@ -46,7 +46,7 @@ export interface UserContext {
   gender: string
   preferredStyles: string[]
   preferredColors: string[]
-  size: string
+  preferredArticleTypes: string[]
   hasInspirationImages: boolean
   inspirationImageCount: number
   hasSelfie: boolean

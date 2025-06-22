@@ -3,41 +3,6 @@ import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { MapPin, ShoppingBag, CreditCard, Store } from 'lucide-react'
 
-const mockItems = [
-  { 
-    id: '1', 
-    name: 'Silk Midi Dress', 
-    price: '$189', 
-    size: 'M',
-    location: 'Level 2, Women\'s Formal',
-    image: 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
-  },
-  { 
-    id: '2', 
-    name: 'Tailored Blazer', 
-    price: '$249', 
-    size: 'M',
-    location: 'Level 2, Women\'s Business',
-    image: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=400'
-  },
-  { 
-    id: '3', 
-    name: 'Designer Heels', 
-    price: '$159', 
-    size: '8',
-    location: 'Level 1, Shoes',
-    image: 'https://images.pexels.com/photos/336372/pexels-photo-336372.jpeg?auto=compress&cs=tinysrgb&w=400'
-  },
-  { 
-    id: '4', 
-    name: 'Statement Necklace', 
-    price: '$89', 
-    size: 'One Size',
-    location: 'Level 1, Accessories',
-    image: 'https://images.pexels.com/photos/1191531/pexels-photo-1191531.jpeg?auto=compress&cs=tinysrgb&w=400'
-  }
-]
-
 export const Step7Checkout: React.FC = () => {
   const { formData, resetWizard, prevStep } = useWizard()
   const [activeTab, setActiveTab] = useState<'checkout' | 'store'>('checkout')
@@ -46,8 +11,9 @@ export const Step7Checkout: React.FC = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const storeId = urlParams.get('storeID')
   
-  const selectedItems = mockItems.filter(item => formData.selectedItems.includes(item.id))
-  const total = selectedItems.reduce((sum, item) => sum + parseInt(item.price.replace('$', '')), 0)
+  // Use real selected items from formData
+  const selectedItems = formData.selectedItems || []
+  const total = selectedItems.reduce((sum, item) => sum + (item.price || 0), 0)
   const tax = Math.round(total * 0.08) // 8% tax
   const finalTotal = total + tax
 
@@ -144,13 +110,18 @@ export const Step7Checkout: React.FC = () => {
                     src={item.image}
                     alt={item.name}
                     className="w-16 h-16 object-cover rounded-lg"
+                    onError={(e) => {
+                      // Fallback image if the original fails to load
+                      e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
+                    }}
                   />
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
-                      <span className="font-medium text-gray-900">{item.price}</span>
+                      <span className="font-medium text-gray-900">${item.price}</span>
                     </div>
-                    <p className="text-sm text-gray-600">Size: {item.size}</p>
+                    <p className="text-sm text-gray-600">{item.description}</p>
+                    <p className="text-sm text-gray-500">Category: {item.category}</p>
                   </div>
                 </div>
               </div>
@@ -222,12 +193,12 @@ export const Step7Checkout: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
-                      <span className="font-medium text-gray-900">{item.price}</span>
+                      <span className="font-medium text-gray-900">${item.price}</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">Size: {item.size}</p>
+                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                     <div className="flex items-center text-sm text-blue-600">
                       <MapPin className="h-4 w-4 mr-1" />
-                      <span className="font-medium">{item.location}</span>
+                      <span className="font-medium">{item.storeLocation || 'Location not available'}</span>
                     </div>
                   </div>
                 </div>

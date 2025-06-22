@@ -71,7 +71,8 @@ class RecommendationService:
                 k=min(request.top_k * 2, settings.max_search_results),
                 exclude_ids=exclude_ids,
                 search_query=search_query,
-                gender_filter=user_profile.gender.value
+                gender_filter=user_profile.gender.value,
+                article_type_filter=user_profile.preferred_article_types if user_profile.preferred_article_types else None
             )
             
             # Extract products from search results
@@ -171,7 +172,8 @@ class RecommendationService:
                 exclude_ids=all_exclude_ids,
                 count=count,
                 search_query=session_data.get("search_query"),
-                gender_filter=session_data["user_profile"]["gender"]  # Pass gender from cached profile
+                gender_filter=session_data["user_profile"]["gender"],  # Pass gender from cached profile
+                article_type_filter=session_data["user_profile"].get("preferred_article_types")
             )
             
             # Update session cache with new excludes

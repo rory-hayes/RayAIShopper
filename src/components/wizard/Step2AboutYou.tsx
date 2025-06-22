@@ -21,15 +21,33 @@ const colorOptions = [
   'Orange', 'Gold', 'Silver', 'Cream', 'Burgundy', 'Teal'
 ]
 
+// Article types from actual CSV data, grouped by category
+const articleTypeOptions = {
+  'Topwear': ['Tshirts', 'Shirts', 'Kurtas', 'Tops', 'Sweatshirts', 'Jackets', 'Sweaters', 'Kurtis', 'Tunics'],
+  'Bottomwear': ['Jeans', 'Shorts', 'Track Pants', 'Trousers', 'Skirts', 'Capris', 'Leggings', 'Patiala'],
+  'Footwear': ['Casual Shoes', 'Sports Shoes', 'Heels', 'Flip Flops', 'Sandals', 'Formal Shoes', 'Flats'],
+  'Dresses & Sets': ['Dresses', 'Sarees', 'Kurta Sets'],
+  'Loungewear': ['Nightdress', 'Night suits', 'Lounge Pants', 'Lounge Shorts', 'Bath Robe'],
+  'Accessories': ['Dupatta', 'Ties', 'Waistcoat']
+}
+
 export const Step2AboutYou: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
   const [gender, setGender] = useState(formData.gender)
-  const [size, setSize] = useState(formData.size)
+  const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>(formData.preferredArticleTypes || [])
   const [selectedStyles, setSelectedStyles] = useState<string[]>(formData.preferredStyles)
   const [selectedColors, setSelectedColors] = useState<string[]>(formData.preferredColors)
   const [customStyle, setCustomStyle] = useState('')
   const [customColor, setCustomColor] = useState('')
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+
+  const toggleArticleType = (articleType: string) => {
+    setSelectedArticleTypes(prev => 
+      prev.includes(articleType) 
+        ? prev.filter(t => t !== articleType)
+        : [...prev, articleType]
+    )
+  }
 
   const toggleStyle = (style: string) => {
     setSelectedStyles(prev => 
@@ -67,8 +85,8 @@ export const Step2AboutYou: React.FC = () => {
     if (!gender) {
       newErrors.gender = 'Please select your gender'
     }
-    if (!size.trim()) {
-      newErrors.size = 'Please enter your size'
+    if (selectedArticleTypes.length === 0) {
+      newErrors.articleTypes = 'Please select at least one item type you\'re looking for'
     }
     if (selectedStyles.length === 0) {
       newErrors.styles = 'Please select at least one style preference'
@@ -85,7 +103,7 @@ export const Step2AboutYou: React.FC = () => {
     if (validateForm()) {
       updateFormData({ 
         gender, 
-        size, 
+        preferredArticleTypes: selectedArticleTypes,
         preferredStyles: selectedStyles,
         preferredColors: selectedColors
       })
@@ -110,13 +128,36 @@ export const Step2AboutYou: React.FC = () => {
           error={errors.gender}
         />
 
-        <Input
-          label="Size"
-          placeholder="S, M, L, XL or specific measurements"
-          value={size}
-          onChange={(e) => setSize(e.target.value)}
-          error={errors.size}
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            What items are you looking for? (select all that apply)
+          </label>
+          
+          {Object.entries(articleTypeOptions).map(([category, items]) => (
+            <div key={category} className="mb-4">
+              <h4 className="text-sm font-medium text-gray-600 mb-2">{category}</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {items.map((articleType) => (
+                  <button
+                    key={articleType}
+                    onClick={() => toggleArticleType(articleType)}
+                    className={`px-3 py-2 rounded-lg text-sm transition-all duration-200 text-left ${
+                      selectedArticleTypes.includes(articleType)
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {articleType}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          
+          {errors.articleTypes && (
+            <p className="mt-1 text-sm text-red-600">{errors.articleTypes}</p>
+          )}
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">

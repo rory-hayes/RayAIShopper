@@ -7,14 +7,6 @@ class Gender(str, Enum):
     WOMEN = "Women"
     UNISEX = "Unisex"
 
-class SizeCategory(str, Enum):
-    XS = "XS"
-    S = "S"
-    M = "M"
-    L = "L"
-    XL = "XL"
-    XXL = "XXL"
-
 class StylePreference(str, Enum):
     CASUAL = "Casual"
     FORMAL = "Formal"
@@ -29,7 +21,7 @@ class UserProfile(BaseModel):
     gender: Gender = Field(..., description="User's gender preference")
     preferred_styles: List[StylePreference] = Field(default=[], description="Preferred clothing styles")
     preferred_colors: List[str] = Field(default=[], description="Preferred colors")
-    size: SizeCategory = Field(..., description="User's size preference")
+    preferred_article_types: List[str] = Field(default=[], description="Preferred article types (e.g., Shirts, Jeans, Shoes)")
     selfie_image: Optional[str] = Field(None, description="Base64 encoded selfie for virtual try-on")
     age_range: Optional[str] = Field(None, description="Age range (e.g., '25-30')")
     budget_range: Optional[str] = Field(None, description="Budget preference")

@@ -17,7 +17,7 @@ const initialState: WizardState = {
     gender: '',
     preferredStyles: [],
     preferredColors: [],
-    size: '',
+    preferredArticleTypes: [],
     inspirationImages: [],
     selfieImage: null,
     selectedItems: []
@@ -87,7 +87,7 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (state.formData.gender) steps.push('Gender selected')
     if (state.formData.preferredStyles.length > 0) steps.push('Style preferences set')
     if (state.formData.preferredColors.length > 0) steps.push('Color preferences set')
-    if (state.formData.size) steps.push('Size information provided')
+    if (state.formData.preferredArticleTypes.length > 0) steps.push('Article type preferences set')
     if (state.formData.inspirationImages.length > 0) steps.push('Inspiration images uploaded')
     if (state.formData.selfieImage) steps.push('Selfie uploaded')
     if (state.formData.selectedItems.length > 0) steps.push('Items selected for purchase')
@@ -101,7 +101,7 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       case 2:
         const aboutYouProgress = []
         if (state.formData.gender) aboutYouProgress.push('gender')
-        if (state.formData.size) aboutYouProgress.push('size')
+        if (state.formData.preferredArticleTypes.length > 0) aboutYouProgress.push('article types')
         if (state.formData.preferredStyles.length > 0) aboutYouProgress.push('styles')
         if (state.formData.preferredColors.length > 0) aboutYouProgress.push('colors')
         return aboutYouProgress.length > 0 
@@ -135,7 +135,7 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       case 2:
         const step2Items = []
         if (state.formData.gender) step2Items.push(`Gender: ${state.formData.gender}`)
-        if (state.formData.size) step2Items.push(`Size: ${state.formData.size}`)
+        if (state.formData.preferredArticleTypes.length > 0) step2Items.push(`Article types: ${state.formData.preferredArticleTypes.join(', ')}`)
         if (state.formData.preferredStyles.length > 0) step2Items.push(`Styles: ${state.formData.preferredStyles.join(', ')}`)
         if (state.formData.preferredColors.length > 0) step2Items.push(`Colors: ${state.formData.preferredColors.join(', ')}`)
         
@@ -178,7 +178,7 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       gender: state.formData.gender,
       preferredStyles: state.formData.preferredStyles,
       preferredColors: state.formData.preferredColors,
-      size: state.formData.size,
+      preferredArticleTypes: state.formData.preferredArticleTypes,
       hasInspirationImages: state.formData.inspirationImages.length > 0,
       inspirationImageCount: state.formData.inspirationImages.length,
       hasSelfie: state.formData.selfieImage !== null,

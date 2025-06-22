@@ -11,7 +11,7 @@ export interface UserProfile {
   gender: string
   preferred_styles: string[]
   preferred_colors: string[]
-  size: string
+  preferred_article_types: string[]
   age_range?: string
   budget_range?: string
   body_type?: string
@@ -231,19 +231,12 @@ export const convertToUserProfile = (formData: any): UserProfile => {
     }) || []
   }
 
-  // Map size to backend enum format
-  const mapSize = (size: string): string => {
-    const sizeUpper = size?.toUpperCase()
-    const validSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-    return validSizes.includes(sizeUpper) ? sizeUpper : 'M' // Default to M
-  }
-
   return {
     shopping_prompt: formData.shoppingPrompt || '',
     gender: mapGender(formData.gender),
     preferred_styles: mapStyles(formData.preferredStyles),
     preferred_colors: formData.preferredColors || [],
-    size: mapSize(formData.size),
+    preferred_article_types: formData.preferredArticleTypes || [],
     age_range: formData.ageRange,
     budget_range: formData.budgetRange,
     body_type: formData.bodyType,
