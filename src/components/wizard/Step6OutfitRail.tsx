@@ -74,12 +74,14 @@ export const Step6OutfitRail: React.FC = () => {
     }))
   }
 
-  // Use real recommendations if available, otherwise fall back to mock data
-  const initialItems = formData.selectedItems && formData.selectedItems.length > 0 
+  // Initialize with all recommendations from formData (up to 20 items)
+  const allRecommendations = formData.selectedItems && formData.selectedItems.length > 0 
     ? convertToClothingItems(formData.selectedItems)
     : mockItems
 
-  const [items, setItems] = useState<ClothingItem[]>(initialItems)
+  // State to track which items are currently displayed (5 at a time)
+  const [displayedItemIds, setDisplayedItemIds] = useState<string[]>([])
+  const [allItems, setAllItems] = useState<ClothingItem[]>(allRecommendations)
   const [showTryOn, setShowTryOn] = useState<string | null>(null)
   const [showCart, setShowCart] = useState(false)
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set())
@@ -88,88 +90,122 @@ export const Step6OutfitRail: React.FC = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(formData.sessionId || null)
   const [hasLoadedRecommendations, setHasLoadedRecommendations] = useState(false)
 
+  // Initialize displayed items (first 5 from the pool)
+  useEffect(() => {
+    if (allItems.length > 0 && displayedItemIds.length === 0) {
+      const initialIds = allItems.slice(0, 5).map(item => item.id)
+      setDisplayedItemIds(initialIds)
+    }
+  }, [allItems, displayedItemIds.length])
+
+  // Get currently displayed items
+  const displayedItems = allItems.filter(item => displayedItemIds.includes(item.id))
+  
+  // Get items available for rotation (not currently displayed and not disliked)
+  const availableForRotation = allItems.filter(item => 
+    !displayedItemIds.includes(item.id) && !item.disliked
+  )
+
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
   const storeId = urlParams.get('storeID')
 
-  // Function to refresh/replace items
-  const refreshItems = async (excludeIds: string[], count: number = 1) => {
-    try {
-      console.log('🔄 REFRESH: Requesting fresh items, excluding:', excludeIds)
-      console.log('🔄 REFRESH: Current session ID:', currentSessionId)
+  // Smart item replacement - rotate from available pool first, then API call if needed
+  const replaceItem = async (removedItemId: string) => {
+    // First, try to replace from available pool
+    if (availableForRotation.length > 0) {
+      const newItem = availableForRotation[0]
+      console.log('🔄 ROTATE: Replacing with item from pool:', newItem.name)
       
+      // Update displayed items
+      setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? newItem.id : id))
+      
+      setToast({
+        message: `Added ${newItem.name} to your recommendations`,
+        type: 'success'
+      })
+      
+      return true
+    }
+    
+    // If no items available in pool, make API call for fresh items
+    console.log('🔄 API: No items left in pool, fetching fresh recommendations...')
+    return await fetchFreshItem(removedItemId)
+  }
+
+  // Fallback: Fetch fresh item from API when pool is exhausted
+  const fetchFreshItem = async (removedItemId: string): Promise<boolean> => {
+    try {
       if (!currentSessionId) {
         console.error('❌ REFRESH: No session ID available')
         setToast({
           message: 'Please wait for recommendations to load first',
           type: 'error'
         })
-        return []
+        return false
       }
       
+      const allItemIds = allItems.map(item => item.id)
       const freshItemsResponse = await apiService.refreshRecommendations({
         session_id: currentSessionId,
-        exclude_ids: excludeIds,
-        count
+        exclude_ids: allItemIds,
+        count: 1
       })
 
-      console.log('✅ REFRESH: API Response:', freshItemsResponse)
-
-      // The refresh endpoint returns an array of ProductItems directly, not wrapped in recommendations
       const freshItems = Array.isArray(freshItemsResponse) ? freshItemsResponse : []
       
       if (freshItems.length === 0) {
-        console.warn('⚠️ REFRESH: No fresh items received')
+        console.warn('⚠️ REFRESH: No fresh items available')
         setToast({
-          message: 'No new recommendations available',
+          message: 'No more new recommendations available',
           type: 'info'
         })
-        return []
+        return false
       }
 
-      console.log('✅ REFRESH: Received fresh items:', freshItems.length)
-
-      // Convert ProductItem[] to RecommendationItem[] format
-      const recommendationItems: RecommendationItem[] = freshItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        price: 75, // Default price since ProductItem doesn't have price
-        image: item.image_url,
-        description: `${item.article_type} in ${item.color}`,
-        inStock: true,
-        storeLocation: item.store_location || 'Available in store',
-        similarity_score: item.similarity_score,
-        article_type: item.article_type,
-        color: item.color,
-        usage: item.usage
-      }))
-
       // Convert to ClothingItem format
-      const newClothingItems = convertToClothingItems(recommendationItems)
-      
-      // Add new items to the list
-      setItems((prev: ClothingItem[]) => [...prev, ...newClothingItems])
+      const newClothingItem: ClothingItem = {
+        id: freshItems[0].id,
+        name: freshItems[0].name,
+        description: `${freshItems[0].article_type} in ${freshItems[0].color}`,
+        image: freshItems[0].image_url,
+        price: '$75',
+        location: freshItems[0].store_location || 'Available in store',
+        liked: false,
+        disliked: false,
+        addedToCart: false
+      }
 
-      return newClothingItems
+      // Add to all items pool
+      setAllItems(prev => [...prev, newClothingItem])
+      
+      // Replace in displayed items
+      setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? newClothingItem.id : id))
+
+      setToast({
+        message: `Added ${newClothingItem.name} to your recommendations`,
+        type: 'success'
+      })
+
+      return true
     } catch (error) {
       console.error('❌ REFRESH: Failed to get fresh items:', error)
       setToast({
         message: 'Failed to load new recommendations',
         type: 'error'
       })
-      return []
+      return false
     }
   }
 
   const toggleLike = (itemId: string) => {
-    setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
+    setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
       item.id === itemId ? { ...item, liked: !item.liked, disliked: false } : item
     ))
   }
 
   const toggleDislike = async (itemId: string) => {
-    const item = items.find((i: ClothingItem) => i.id === itemId)
+    const item = allItems.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
     if (!item.disliked) {
@@ -187,15 +223,12 @@ export const Step6OutfitRail: React.FC = () => {
       // Mark item as refreshing to show loading state
       setRefreshingItems((prev: Set<string>) => new Set([...prev, itemId]))
 
-      // Get all current item IDs to exclude from refresh
-      const allItemIds = items.map((item: ClothingItem) => item.id)
-      
       // Request fresh item to replace the disliked one
-      const freshItems = await refreshItems(allItemIds, 1)
+      const success = await replaceItem(itemId)
       
-      // After animation completes, actually remove the disliked item
+      // After animation completes, actually mark item as disliked
       setTimeout(() => {
-        setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
+        setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
           item.id === itemId ? { ...item, disliked: true, liked: false, addedToCart: false } : item
         ))
         setRemovingItems((prev: Set<string>) => {
@@ -208,22 +241,15 @@ export const Step6OutfitRail: React.FC = () => {
           newSet.delete(itemId)
           return newSet
         })
-
-        if (freshItems.length > 0) {
-          setToast({
-            message: `Added ${freshItems[0].name} to your recommendations`,
-            type: 'success'
-          })
-        }
       }, 300) // Match the animation duration
     }
   }
 
   const toggleCart = (itemId: string) => {
-    const item = items.find((i: ClothingItem) => i.id === itemId)
+    const item = allItems.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
-    setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
+    setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
       item.id === itemId ? { ...item, addedToCart: !item.addedToCart } : item
     ))
 
@@ -244,7 +270,7 @@ export const Step6OutfitRail: React.FC = () => {
   const handleTryOn = (itemId: string) => {
     console.log('🔥 TRYON: handleTryOn called for itemId:', itemId)
     
-    const item = items.find((i: ClothingItem) => i.id === itemId)
+    const item = allItems.find((i: ClothingItem) => i.id === itemId)
     if (!item) {
       console.log('❌ TRYON: Item not found for id:', itemId)
       return
@@ -298,7 +324,7 @@ export const Step6OutfitRail: React.FC = () => {
 
   const handleContinue = () => {
     // Get selected items and convert back to RecommendationItem format
-    const selectedClothingItems = items.filter((item: ClothingItem) => item.addedToCart)
+    const selectedClothingItems = allItems.filter((item: ClothingItem) => item.addedToCart)
     
     // Convert ClothingItem back to RecommendationItem format for checkout
     const selectedItems = selectedClothingItems.map((item: ClothingItem) => ({
@@ -323,9 +349,9 @@ export const Step6OutfitRail: React.FC = () => {
     nextStep()
   }
 
-  const cartItems = items.filter((item: ClothingItem) => item.addedToCart)
-  const visibleItems = items.filter((item: ClothingItem) => !item.disliked)
-  const tryOnItem = items.find((item: ClothingItem) => item.id === showTryOn)
+  const cartItems = allItems.filter((item: ClothingItem) => item.addedToCart)
+  const visibleItems = displayedItems.filter(item => !item.disliked)
+  const tryOnItem = allItems.find((item: ClothingItem) => item.id === showTryOn)
 
   // Generate explanation based on user preferences
   const getRecommendationReason = () => {
@@ -407,7 +433,7 @@ export const Step6OutfitRail: React.FC = () => {
 
         // Convert to ClothingItem format and set
         const clothingItems = convertToClothingItems(recommendationItems)
-        setItems(clothingItems)
+        setAllItems(clothingItems)
 
       } catch (error) {
         console.error('❌ STEP6: Failed to fetch recommendations:', error)
@@ -420,6 +446,27 @@ export const Step6OutfitRail: React.FC = () => {
 
     fetchRecommendations()
   }, []) // Empty dependency array - only run once when component mounts
+
+  // More Options - rotate multiple items
+  const handleMoreOptions = async () => {
+    const itemsToReplace = Math.min(3, displayedItemIds.length) // Replace up to 3 items
+    const idsToReplace = displayedItemIds.slice(0, itemsToReplace)
+    
+    console.log('🔄 MORE OPTIONS: Replacing items:', idsToReplace)
+    
+    let replacedCount = 0
+    for (const itemId of idsToReplace) {
+      const success = await replaceItem(itemId)
+      if (success) replacedCount++
+    }
+    
+    if (replacedCount > 0) {
+      setToast({
+        message: `Refreshed ${replacedCount} recommendations`,
+        type: 'success'
+      })
+    }
+  }
 
   if (showCart) {
     return (
@@ -513,7 +560,7 @@ export const Step6OutfitRail: React.FC = () => {
             How about these?
           </h1>
           <button
-            onClick={() => refreshItems(items.map((item: ClothingItem) => item.id), 3)}
+            onClick={handleMoreOptions}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm"
           >
             <RefreshCw className="h-4 w-4" />
