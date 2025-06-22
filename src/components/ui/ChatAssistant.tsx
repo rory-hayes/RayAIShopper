@@ -177,7 +177,7 @@ export const ChatAssistant: React.FC = () => {
             
             {/* Hover tooltip */}
             <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Chat with Ray - Your Fashion Stylist
+              Chat with Ray - Your Personal Fashion Expert
             </div>
           </button>
         </div>
