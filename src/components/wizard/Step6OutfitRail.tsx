@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { Toast } from '../ui/Toast'
-import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X, RefreshCw } from 'lucide-react'
 import { ClothingItem, RecommendationItem } from '../../types'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
-import { convertToUserProfile, convertFromBase64 } from '../../services/api'
+import { convertToUserProfile, convertFromBase64, apiService } from '../../services/api'
 
 const mockItems: ClothingItem[] = [
   {
@@ -97,11 +97,59 @@ export const Step6OutfitRail: React.FC = () => {
   const [showTryOn, setShowTryOn] = useState<string | null>(null)
   const [showCart, setShowCart] = useState(false)
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set())
+  const [refreshingItems, setRefreshingItems] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
   const storeId = urlParams.get('storeID')
+
+  // Function to refresh/replace items
+  const refreshItems = async (excludeIds: string[], count: number = 1) => {
+    try {
+      console.log('🔄 REFRESH: Requesting fresh items, excluding:', excludeIds)
+      
+      const userProfile = convertToUserProfile(formData)
+      const freshItems = await apiService.refreshRecommendations({
+        user_profile: userProfile,
+        exclude_ids: excludeIds,
+        count
+      })
+
+      console.log('✅ REFRESH: Received fresh items:', freshItems.recommendations.length)
+
+      // Convert ProductItem[] to RecommendationItem[] format
+      const recommendationItems: RecommendationItem[] = freshItems.recommendations.map(item => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: 75, // Default price since ProductItem doesn't have price
+        image: item.image_url,
+        description: `${item.article_type} in ${item.color}`,
+        inStock: true,
+        storeLocation: item.store_location || 'Available in store',
+        similarity_score: item.similarity_score,
+        article_type: item.article_type,
+        color: item.color,
+        usage: item.usage
+      }))
+
+      // Convert to ClothingItem format
+      const newClothingItems = convertToClothingItems(recommendationItems)
+      
+      // Add new items to the list
+      setItems((prev: ClothingItem[]) => [...prev, ...newClothingItems])
+
+      return newClothingItems
+    } catch (error) {
+      console.error('❌ REFRESH: Failed to get fresh items:', error)
+      setToast({
+        message: 'Failed to load new recommendations',
+        type: 'error'
+      })
+      return []
+    }
+  }
 
   const toggleLike = (itemId: string) => {
     setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
@@ -109,11 +157,13 @@ export const Step6OutfitRail: React.FC = () => {
     ))
   }
 
-  const toggleDislike = (itemId: string) => {
+  const toggleDislike = async (itemId: string) => {
     const item = items.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
     if (!item.disliked) {
+      console.log('👎 DISLIKE: User disliked item:', item.name)
+      
       // Start the removal animation
       setRemovingItems((prev: Set<string>) => new Set([...prev, itemId]))
       
@@ -123,7 +173,16 @@ export const Step6OutfitRail: React.FC = () => {
         type: 'info'
       })
 
-      // After animation completes, actually remove the item
+      // Mark item as refreshing to show loading state
+      setRefreshingItems((prev: Set<string>) => new Set([...prev, itemId]))
+
+      // Get all current item IDs to exclude from refresh
+      const allItemIds = items.map((item: ClothingItem) => item.id)
+      
+      // Request fresh item to replace the disliked one
+      const freshItems = await refreshItems(allItemIds, 1)
+      
+      // After animation completes, actually remove the disliked item
       setTimeout(() => {
         setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
           item.id === itemId ? { ...item, disliked: true, liked: false, addedToCart: false } : item
@@ -133,6 +192,18 @@ export const Step6OutfitRail: React.FC = () => {
           newSet.delete(itemId)
           return newSet
         })
+        setRefreshingItems((prev: Set<string>) => {
+          const newSet = new Set(prev)
+          newSet.delete(itemId)
+          return newSet
+        })
+
+        if (freshItems.length > 0) {
+          setToast({
+            message: `Added ${freshItems[0].name} to your recommendations`,
+            type: 'success'
+          })
+        }
       }, 300) // Match the animation duration
     }
   }
@@ -353,9 +424,18 @@ export const Step6OutfitRail: React.FC = () => {
       )}
 
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-light text-gray-900 mb-4">
-          How about these?
-        </h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-light text-gray-900">
+            How about these?
+          </h1>
+          <button
+            onClick={() => refreshItems(items.map((item: ClothingItem) => item.id), 3)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm"
+          >
+            <RefreshCw className="h-4 w-4" />
+            More Options
+          </button>
+        </div>
         <div className="bg-gray-50 rounded-xl p-4 mb-6">
           <p className="text-sm text-gray-700 leading-relaxed">
             {getRecommendationReason()}
