@@ -41,49 +41,83 @@ export const Step5AIWorking: React.FC = () => {
           if (formData.inspirationImages && Array.isArray(formData.inspirationImages)) {
             console.log('🔥 Processing inspiration images...', formData.inspirationImages.length, 'files')
             
-            // Convert File objects to base64
-            const imagePromises = formData.inspirationImages.map(async (file: File, index: number) => {
-              try {
-                console.log(`🔥 Converting file ${index + 1}:`, file.name, file.type, file.size)
-                
-                return new Promise<string>((resolve, reject) => {
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    const base64 = reader.result as string
-                    console.log(`🔥 Successfully converted file ${index + 1} to base64`)
-                    resolve(base64)
-                  }
-                  reader.onerror = () => {
-                    console.error(`🔥 Error reading file ${index + 1}:`, reader.error)
-                    reject(reader.error)
-                  }
-                  reader.readAsDataURL(file)
-                })
-              } catch (error) {
-                console.error(`🔥 Error processing file ${index + 1}:`, error)
-                return ''
+            // Filter and validate File objects first
+            const validFiles = formData.inspirationImages.filter((file: any) => {
+              if (file instanceof File) {
+                console.log(`✅ Valid file: ${file.name}, type: ${file.type}, size: ${file.size}`)
+                return true
+              } else {
+                console.warn(`❌ Skipping invalid file object:`, typeof file, file)
+                return false
               }
             })
             
-            // Wait for all images to be converted
-            const base64Images = await Promise.all(imagePromises)
-            
-            // Filter out empty results and convert to API format
-            inspirationImages = base64Images
-              .filter(base64 => base64 && base64.trim() !== '')
-              .map(base64 => {
+            if (validFiles.length === 0) {
+              console.log('🔥 No valid image files found')
+              inspirationImages = []
+            } else {
+              // Convert valid File objects to base64
+              const imagePromises = validFiles.map(async (file: File, index: number) => {
                 try {
-                  // Remove data:image/jpeg;base64, prefix for API
-                  return base64.replace(/^data:image\/[a-z]+;base64,/, '')
+                  console.log(`🔥 Converting file ${index + 1}:`, file.name, file.type, file.size)
+                  
+                  return new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      const base64 = reader.result as string
+                      console.log(`🔥 Successfully converted file ${index + 1} to base64, length: ${base64.length}`)
+                      resolve(base64)
+                    }
+                    reader.onerror = () => {
+                      console.error(`🔥 Error reading file ${index + 1}:`, reader.error)
+                      reject(reader.error)
+                    }
+                    reader.readAsDataURL(file)
+                  })
                 } catch (error) {
-                  console.error('Error converting base64:', error)
+                  console.error(`🔥 Error processing file ${index + 1}:`, error)
                   return ''
                 }
               })
-              .filter(img => img !== '')
+              
+              // Wait for all images to be converted
+              const base64Images = await Promise.all(imagePromises)
+              
+              // Filter out empty results and convert to API format
+              inspirationImages = base64Images
+                .filter((base64: string) => base64 && base64.trim() !== '')
+                .map((base64: string) => {
+                  try {
+                    // Validate base64 format
+                    if (!base64.startsWith('data:image/')) {
+                      console.error('Invalid base64 format - missing data:image/ prefix')
+                      return ''
+                    }
+                    
+                    // Remove data:image/[type];base64, prefix for API
+                    const base64Data = base64.replace(/^data:image\/[a-z]+;base64,/, '')
+                    
+                    // Validate the cleaned base64
+                    if (base64Data.length === 0) {
+                      console.error('Empty base64 data after cleaning')
+                      return ''
+                    }
+                    
+                    console.log(`✅ Processed base64 image, length: ${base64Data.length}`)
+                    return base64Data
+                  } catch (error) {
+                    console.error('Error converting base64:', error)
+                    return ''
+                  }
+                })
+                .filter((img: string) => img !== '')
+            }
               
             console.log('🔥 Final inspiration images count:', inspirationImages.length)
-            console.log('🔥 Sample base64 length:', inspirationImages[0]?.length || 0)
+            if (inspirationImages.length > 0) {
+              console.log('🔥 Sample base64 length:', inspirationImages[0]?.length || 0)
+              console.log('🔥 First few characters:', inspirationImages[0]?.substring(0, 50) || 'none')
+            }
           }
         } catch (error) {
           console.error('Error processing inspiration images:', error)
