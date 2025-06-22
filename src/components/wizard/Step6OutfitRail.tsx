@@ -160,17 +160,28 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleTryOn = (itemId: string) => {
+    console.log('🔥 TRYON: handleTryOn called for itemId:', itemId)
+    
     const item = items.find((i: ClothingItem) => i.id === itemId)
-    if (!item) return
+    if (!item) {
+      console.log('❌ TRYON: Item not found for id:', itemId)
+      return
+    }
+
+    console.log('🔥 TRYON: Found item:', item.name)
+    console.log('🔥 TRYON: Checking selfie - formData.selfieImage:', !!formData.selfieImage)
 
     // Check if user has a selfie
     if (!formData.selfieImage) {
+      console.log('❌ TRYON: No selfie found, showing toast')
       setToast({
         message: 'Please upload a selfie in Step 4 to use virtual try-on',
         type: 'info'
       })
       return
     }
+
+    console.log('🔥 TRYON: Selfie found, starting FileReader...')
 
     // Convert selfie to base64 string
     const reader = new FileReader()
@@ -189,6 +200,8 @@ export const Step6OutfitRail: React.FC = () => {
         userSelfie: base64Data
       })
       setShowTryOn(itemId)
+      
+      console.log('🔥 TRYON: Modal state set, should show now')
     }
     reader.readAsDataURL(formData.selfieImage)
   }
