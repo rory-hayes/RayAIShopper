@@ -162,7 +162,28 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleContinue = () => {
-    const selectedItems = items.filter(item => item.addedToCart).map(item => item.id)
+    // Get selected items and convert back to RecommendationItem format
+    const selectedClothingItems = items.filter(item => item.addedToCart)
+    
+    // Convert ClothingItem back to RecommendationItem format for checkout
+    const selectedItems = selectedClothingItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      category: 'Apparel', // Default category
+      price: parseInt(item.price.replace('$', '')), // Convert price string back to number
+      image: item.image,
+      description: item.description,
+      inStock: true,
+      storeLocation: item.location,
+      article_type: 'Unknown', // We lost this info in conversion, could be improved
+      color: 'Unknown', // We lost this info in conversion, could be improved
+      usage: 'Unknown' // We lost this info in conversion, could be improved
+    }))
+    
+    console.log('🔥 STEP6 DEBUG: selectedClothingItems:', selectedClothingItems)
+    console.log('🔥 STEP6 DEBUG: converted selectedItems:', selectedItems)
+    console.log('🔥 STEP6 DEBUG: First converted item:', selectedItems[0])
+    
     updateFormData({ selectedItems })
     nextStep()
   }
