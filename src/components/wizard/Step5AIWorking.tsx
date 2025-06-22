@@ -105,17 +105,25 @@ export const Step5AIWorking: React.FC = () => {
           
           updateFormData({ selectedItems })
           console.log('Successfully updated form data with real recommendations')
+          console.log('🔥 STEP5 DEBUG: selectedItems being saved:', selectedItems.length, 'items')
+          console.log('🔥 STEP5 DEBUG: First item being saved:', selectedItems[0])
+          
+          // Add a small delay to ensure state update propagates
+          setTimeout(() => {
+            console.log('🔥 STEP5 DEBUG: About to call nextStep after state update delay')
+            setStatus('success')
+            
+            // Move to next step after brief success display AND state propagation
+            setTimeout(() => {
+              console.log('🔥 STEP5 DEBUG: Calling nextStep now')
+              nextStep()
+            }, 1500)
+          }, 100) // Small delay to ensure state update
+
         } catch (mappingError) {
           console.error('Error mapping recommendations:', mappingError)
           throw new Error(`Failed to process recommendations: ${mappingError}`)
         }
-
-        setStatus('success')
-        
-        // Move to next step after brief success display
-        setTimeout(() => {
-          nextStep()
-        }, 1500)
 
       } catch (error) {
         console.error('Error fetching recommendations:', error)

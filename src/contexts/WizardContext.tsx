@@ -55,8 +55,16 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const nextStep = () => dispatch({ type: 'NEXT_STEP' })
   const prevStep = () => dispatch({ type: 'PREV_STEP' })
-  const updateFormData = (data: Partial<WizardState['formData']>) => 
+  const updateFormData = (data: Partial<WizardState['formData']>) => {
+    console.log('🔥 WIZARD CONTEXT: updateFormData called with:', data)
+    console.log('🔥 WIZARD CONTEXT: selectedItems in update:', data.selectedItems?.length, 'items')
+    console.log('🔥 WIZARD CONTEXT: Current state before update:', state.formData.selectedItems?.length, 'items')
+    
     dispatch({ type: 'UPDATE_FORM_DATA', payload: data })
+    
+    // Log after dispatch (though this won't show the updated state immediately due to async nature)
+    console.log('🔥 WIZARD CONTEXT: dispatch called, state will update asynchronously')
+  }
   const resetWizard = () => dispatch({ type: 'RESET_WIZARD' })
 
   const getStepName = (step: number): string => {

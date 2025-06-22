@@ -55,6 +55,16 @@ const mockItems: ClothingItem[] = [
 export const Step6OutfitRail: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
   
+  // COMPREHENSIVE DEBUGGING - Add at the very start
+  console.log('🔥🔥🔥 STEP6 COMPONENT LOADED 🔥🔥🔥')
+  console.log('🔥 STEP6 DEBUG: Full formData:', formData)
+  console.log('🔥 STEP6 DEBUG: formData.selectedItems:', formData.selectedItems)
+  console.log('🔥 STEP6 DEBUG: formData.selectedItems length:', formData.selectedItems?.length)
+  console.log('🔥 STEP6 DEBUG: formData.selectedItems type:', typeof formData.selectedItems)
+  console.log('🔥 STEP6 DEBUG: Array.isArray(formData.selectedItems):', Array.isArray(formData.selectedItems))
+  console.log('🔥 STEP6 DEBUG: first item:', formData.selectedItems?.[0])
+  console.log('🔥 STEP6 DEBUG: JSON.stringify first item:', JSON.stringify(formData.selectedItems?.[0], null, 2))
+  
   // Convert real recommendations to ClothingItem format
   const convertToClothingItems = (recommendations: RecommendationItem[]): ClothingItem[] => {
     return recommendations.map(item => ({
