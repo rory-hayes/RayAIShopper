@@ -437,73 +437,80 @@ export const Step6OutfitRail: React.FC = () => {
         {visibleItems.map((item) => (
           <div 
             key={item.id} 
-            className={`bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+            className={`bg-white rounded-xl border border-gray-100 p-4 transition-all duration-300 ${
               removingItems.has(item.id) 
                 ? 'opacity-0 transform scale-95 -translate-x-4' 
                 : 'opacity-100 transform scale-100 translate-x-0'
             }`}
           >
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-full h-32 object-cover"
-            />
-            <div className="p-3">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-medium text-gray-900 text-sm">{item.name}</h3>
-                <span className="font-medium text-gray-900 text-sm">{item.price}</span>
-              </div>
-              <p className="text-xs text-gray-600 mb-3">{item.description}</p>
-              {storeId && (
-                <div className="flex items-center text-xs text-gray-500 mb-3">
-                  <MapPin className="h-3 w-3 mr-1" />
-                  {item.location}
+            <div className="flex gap-4">
+              <img
+                src={item.image}
+                alt={item.name}
+                className="w-16 h-16 object-cover rounded-lg"
+                onError={(e) => {
+                  // Fallback image if the original fails to load
+                  e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
+                }}
+              />
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-medium text-gray-900">{item.name}</h3>
+                  <span className="font-medium text-gray-900">{item.price}</span>
                 </div>
-              )}
-              
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleTryOn(item.id)}
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 text-xs py-1"
-                >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Try On
-                </Button>
+                <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                {storeId && (
+                  <div className="flex items-center text-sm text-gray-500 mb-3">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{item.location}</span>
+                  </div>
+                )}
                 
-                <button
-                  onClick={() => toggleLike(item.id)}
-                  className={`p-1.5 rounded-md transition-all duration-200 ${
-                    item.liked 
-                      ? 'bg-green-100 text-green-600 scale-110' 
-                      : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
-                  }`}
-                >
-                  <ThumbsUp className="h-3 w-3" />
-                </button>
-                
-                <button
-                  onClick={() => toggleDislike(item.id)}
-                  className={`p-1.5 rounded-md transition-all duration-200 ${
-                    item.disliked 
-                      ? 'bg-red-100 text-red-600' 
-                      : 'bg-gray-100 text-gray-400 hover:text-red-500 hover:scale-105'
-                  }`}
-                >
-                  <ThumbsDown className="h-3 w-3" />
-                </button>
-                
-                <button
-                  onClick={() => toggleCart(item.id)}
-                  className={`p-1.5 rounded-md transition-all duration-200 ${
-                    item.addedToCart 
-                      ? 'bg-gray-900 text-white scale-110' 
-                      : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
-                  }`}
-                >
-                  <ShoppingCart className="h-3 w-3" />
-                </button>
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    onClick={() => handleTryOn(item.id)}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-xs"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Try On
+                  </Button>
+                  
+                  <button
+                    onClick={() => toggleLike(item.id)}
+                    className={`p-2 rounded-md transition-all duration-200 ${
+                      item.liked 
+                        ? 'bg-green-100 text-green-600 scale-110' 
+                        : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
+                    }`}
+                  >
+                    <ThumbsUp className="h-4 w-4" />
+                  </button>
+                  
+                  <button
+                    onClick={() => toggleDislike(item.id)}
+                    className={`p-2 rounded-md transition-all duration-200 ${
+                      item.disliked 
+                        ? 'bg-red-100 text-red-600' 
+                        : 'bg-gray-100 text-gray-400 hover:text-red-500 hover:scale-105'
+                    }`}
+                  >
+                    <ThumbsDown className="h-4 w-4" />
+                  </button>
+                  
+                  <button
+                    onClick={() => toggleCart(item.id)}
+                    className={`p-2 rounded-md transition-all duration-200 ${
+                      item.addedToCart 
+                        ? 'bg-gray-900 text-white scale-110' 
+                        : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
+                    }`}
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
