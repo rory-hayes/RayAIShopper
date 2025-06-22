@@ -30,7 +30,6 @@ class UserProfile(BaseModel):
     preferred_styles: List[StylePreference] = Field(default=[], description="Preferred clothing styles")
     preferred_colors: List[str] = Field(default=[], description="Preferred colors")
     size: SizeCategory = Field(..., description="User's size preference")
-    inspiration_images: List[str] = Field(default=[], description="Base64 encoded inspiration images")
     selfie_image: Optional[str] = Field(None, description="Base64 encoded selfie for virtual try-on")
     age_range: Optional[str] = Field(None, description="Age range (e.g., '25-30')")
     budget_range: Optional[str] = Field(None, description="Budget preference")
@@ -44,6 +43,7 @@ class FilterOptions(BaseModel):
 
 class RecommendationRequest(BaseModel):
     user_profile: UserProfile
+    inspiration_images: List[str] = Field(default=[], description="Base64 encoded inspiration images")
     filters: Optional[FilterOptions] = None
     top_k: int = Field(default=20, description="Number of recommendations to return")
     session_id: Optional[str] = Field(None, description="Session identifier for tracking")
