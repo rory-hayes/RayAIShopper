@@ -104,18 +104,18 @@ export const Step6OutfitRail: React.FC = () => {
   const storeId = urlParams.get('storeID')
 
   const toggleLike = (itemId: string) => {
-    setItems(prev => prev.map(item => 
+    setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
       item.id === itemId ? { ...item, liked: !item.liked, disliked: false } : item
     ))
   }
 
   const toggleDislike = (itemId: string) => {
-    const item = items.find(i => i.id === itemId)
+    const item = items.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
     if (!item.disliked) {
       // Start the removal animation
-      setRemovingItems(prev => new Set([...prev, itemId]))
+      setRemovingItems((prev: Set<string>) => new Set([...prev, itemId]))
       
       // Show toast notification
       setToast({
@@ -125,10 +125,10 @@ export const Step6OutfitRail: React.FC = () => {
 
       // After animation completes, actually remove the item
       setTimeout(() => {
-        setItems(prev => prev.map(item => 
+        setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
           item.id === itemId ? { ...item, disliked: true, liked: false, addedToCart: false } : item
         ))
-        setRemovingItems(prev => {
+        setRemovingItems((prev: Set<string>) => {
           const newSet = new Set(prev)
           newSet.delete(itemId)
           return newSet
@@ -138,10 +138,10 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const toggleCart = (itemId: string) => {
-    const item = items.find(i => i.id === itemId)
+    const item = items.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
-    setItems(prev => prev.map(item => 
+    setItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
       item.id === itemId ? { ...item, addedToCart: !item.addedToCart } : item
     ))
 
@@ -160,7 +160,7 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleTryOn = (itemId: string) => {
-    const item = items.find(i => i.id === itemId)
+    const item = items.find((i: ClothingItem) => i.id === itemId)
     if (!item) return
 
     // Check if user has a selfie
@@ -178,14 +178,17 @@ export const Step6OutfitRail: React.FC = () => {
       const base64String = reader.result as string
       const base64Data = convertFromBase64(base64String)
       
+      console.log('🔥 TRYON: Setting up try-on data for item:', item.name)
+      console.log('🔥 TRYON: Base64 data length:', base64Data.length)
+      
       // Set the try-on data and show modal
-      setShowTryOn(itemId)
       setTryOnData({
         productId: itemId,
         productName: item.name,
         productImage: item.image,
         userSelfie: base64Data
       })
+      setShowTryOn(itemId)
     }
     reader.readAsDataURL(formData.selfieImage)
   }
@@ -200,10 +203,10 @@ export const Step6OutfitRail: React.FC = () => {
 
   const handleContinue = () => {
     // Get selected items and convert back to RecommendationItem format
-    const selectedClothingItems = items.filter(item => item.addedToCart)
+    const selectedClothingItems = items.filter((item: ClothingItem) => item.addedToCart)
     
     // Convert ClothingItem back to RecommendationItem format for checkout
-    const selectedItems = selectedClothingItems.map(item => ({
+    const selectedItems = selectedClothingItems.map((item: ClothingItem) => ({
       id: item.id,
       name: item.name,
       category: 'Apparel', // Default category
@@ -225,9 +228,9 @@ export const Step6OutfitRail: React.FC = () => {
     nextStep()
   }
 
-  const cartItems = items.filter(item => item.addedToCart)
-  const visibleItems = items.filter(item => !item.disliked)
-  const tryOnItem = items.find(item => item.id === showTryOn)
+  const cartItems = items.filter((item: ClothingItem) => item.addedToCart)
+  const visibleItems = items.filter((item: ClothingItem) => !item.disliked)
+  const tryOnItem = items.find((item: ClothingItem) => item.id === showTryOn)
 
   // Generate explanation based on user preferences
   const getRecommendationReason = () => {
@@ -250,126 +253,6 @@ export const Step6OutfitRail: React.FC = () => {
     return explanation
   }
 
-  // Virtual Try-On Modal
-  if (showTryOn && tryOnItem) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-fade-in">
-          <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-light text-gray-900">Virtual Try-On</h2>
-              <button
-                onClick={() => setShowTryOn(null)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Item Info */}
-            <div className="text-center mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{tryOnItem.name}</h3>
-              <p className="text-gray-600 text-sm mb-4">{tryOnItem.description}</p>
-              <span className="text-xl font-medium text-gray-900">{tryOnItem.price}</span>
-            </div>
-
-            {/* Try-On Comparison */}
-            <div className="space-y-4 mb-6">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-3">Your Photo</p>
-                {formData.selfieImage ? (
-                  <div className="relative">
-                    <img
-                      src={URL.createObjectURL(formData.selfieImage)}
-                      alt="Your selfie"
-                      className="w-full h-64 object-cover rounded-xl"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl"></div>
-                  </div>
-                ) : (
-                  <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-3 flex items-center justify-center">
-                        <Eye className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <p className="text-gray-500 text-sm">No selfie uploaded</p>
-                      <p className="text-gray-400 text-xs mt-1">Upload a selfie to see virtual try-on</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-3">Virtual Try-On Preview</p>
-                <div className="w-full h-64 bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 rounded-xl flex items-center justify-center relative overflow-hidden">
-                  {/* Placeholder for AI-generated try-on */}
-                  <div className="text-center z-10">
-                    <div className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-full mx-auto mb-3 flex items-center justify-center shadow-lg">
-                      <Eye className="h-8 w-8 text-purple-600" />
-                    </div>
-                    <p className="text-gray-700 font-medium text-sm">AI Try-On Preview</p>
-                    <p className="text-gray-500 text-xs mt-1">Generated with DALL·E</p>
-                  </div>
-                  
-                  {/* Decorative elements */}
-                  <div className="absolute top-4 right-4 w-8 h-8 bg-white/30 rounded-full"></div>
-                  <div className="absolute bottom-6 left-6 w-12 h-12 bg-white/20 rounded-full"></div>
-                  <div className="absolute top-1/2 left-4 w-6 h-6 bg-white/25 rounded-full"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Explanation */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-gray-700 leading-relaxed">
-                <span className="font-medium">Ray's Analysis:</span> This {tryOnItem.name.toLowerCase()} complements your {formData.preferredStyles.join(', ').toLowerCase()} style preferences beautifully. {formData.preferredColors.length > 0 && `The colors work well with your preference for ${formData.preferredColors.join(', ').toLowerCase()}.`} It's perfect for your requested occasion: "{formData.shoppingPrompt}".
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <button
-                  onClick={() => toggleLike(tryOnItem.id)}
-                  className={`flex-1 flex items-center justify-center py-3 px-4 rounded-xl transition-all duration-200 ${
-                    tryOnItem.liked 
-                      ? 'bg-green-100 text-green-700 border border-green-200' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <ThumbsUp className="h-4 w-4 mr-2" />
-                  {tryOnItem.liked ? 'Liked' : 'Like'}
-                </button>
-                
-                <button
-                  onClick={() => toggleCart(tryOnItem.id)}
-                  className={`flex-1 flex items-center justify-center py-3 px-4 rounded-xl transition-all duration-200 ${
-                    tryOnItem.addedToCart 
-                      ? 'bg-gray-900 text-white' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  {tryOnItem.addedToCart ? 'In Cart' : 'Add to Cart'}
-                </button>
-              </div>
-              
-              <Button
-                onClick={() => setShowTryOn(null)}
-                fullWidth
-                variant="secondary"
-                size="lg"
-              >
-                Back to Items
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (showCart) {
     return (
       <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
@@ -389,7 +272,7 @@ export const Step6OutfitRail: React.FC = () => {
               <p className="text-gray-500">Your cart is empty</p>
             </div>
           ) : (
-            cartItems.map((item) => (
+            cartItems.map((item: ClothingItem) => (
               <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4">
                 <div className="flex gap-4">
                   <img
@@ -479,14 +362,14 @@ export const Step6OutfitRail: React.FC = () => {
               <span>View Cart ({cartItems.length})</span>
             </div>
             <span className="font-medium">
-              ${cartItems.reduce((sum, item) => sum + parseInt(item.price.replace('$', '')), 0)}
+              ${cartItems.reduce((sum: number, item: ClothingItem) => sum + parseInt(item.price.replace('$', '')), 0)}
             </span>
           </button>
         </div>
       )}
 
       <div className="space-y-4">
-        {visibleItems.map((item) => (
+        {visibleItems.map((item: ClothingItem) => (
           <div 
             key={item.id} 
             className={`bg-white rounded-xl border border-gray-100 p-4 transition-all duration-300 ${
@@ -500,7 +383,7 @@ export const Step6OutfitRail: React.FC = () => {
                 src={item.image}
                 alt={item.name}
                 className="w-16 h-16 object-cover rounded-lg"
-                onError={(e) => {
+                onError={(e: any) => {
                   // Fallback image if the original fails to load
                   e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
                 }}
