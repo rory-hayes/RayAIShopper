@@ -10,11 +10,22 @@ export const Step3UploadInspiration: React.FC = () => {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
-    setImages(prev => [...prev, ...files])
+    const newImages = [...images, ...files]
+    setImages(newImages)
+    // Immediately update formData to keep state in sync
+    updateFormData({ inspirationImages: newImages })
+    
+    // Clear the file input to allow selecting the same file again if needed
+    if (event.target) {
+      event.target.value = ''
+    }
   }
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index))
+    const newImages = images.filter((_, i) => i !== index)
+    setImages(newImages)
+    // Immediately update formData to keep state in sync
+    updateFormData({ inspirationImages: newImages })
   }
 
   const handleContinue = () => {

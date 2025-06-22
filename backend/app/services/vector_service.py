@@ -71,7 +71,16 @@ class VectorSearchService:
             
             # Initialize with CSV data and prepare for embedding generation
             logger.warning("FAISS not available or no pre-generated index. Using lightweight embedding approach...")
-            return await self._initialize_embedding_mode()
+            success = await self._initialize_embedding_mode()
+            
+            # Start background embedding generation (non-blocking)
+            if success and self.products_data:
+                logger.info("Starting background embedding generation...")
+                # Don't await this - let it run in background
+                import asyncio
+                asyncio.create_task(self._generate_embeddings_background())
+            
+            return success
                 
         except Exception as e:
             logger.error(f"Error loading FAISS index: {e}")
@@ -260,16 +269,19 @@ class VectorSearchService:
         """
         exclude_ids = exclude_ids or []
         
-        # Use FAISS if available
+        # Use FAISS if available (Mode A)
         if not self.fallback_mode and self.index is not None and FAISS_AVAILABLE:
+            logger.info("Using FAISS similarity search (Mode A)")
             return await self._faiss_search(query_embedding, k, exclude_ids, gender_filter)
         
-        # Use embedding similarity if we have embeddings
-        if self.products_with_embeddings:
+        # Use embedding similarity if we have embeddings (Mode B)
+        if self.products_with_embeddings and len(self.products_with_embeddings) > 0:
+            logger.info(f"Using embedding similarity search (Mode B) with {len(self.products_with_embeddings)} products")
             return await self._embedding_similarity_search(query_embedding, k, exclude_ids, gender_filter)
         
-        # Use keyword-based search as immediate fallback
+        # Use keyword-based search as fallback (Mode C)
         if self.products_data:
+            logger.info(f"Using keyword similarity search (Mode C) with {len(self.products_data)} products")
             return await self._keyword_similarity_search(k, exclude_ids, search_query, gender_filter)
         
         # Final fallback - this should not happen in production
@@ -560,3 +572,22 @@ class VectorSearchService:
         Check if service is running in fallback mode
         """
         return self.fallback_mode 
+
+    async def _generate_embeddings_background(self):
+        """
+        Generate embeddings in background without blocking startup
+        """
+        try:
+            logger.info("Background embedding generation started...")
+            await self._generate_embeddings_for_all_products()
+            
+            # Switch to embedding mode once complete
+            if self.products_with_embeddings:
+                self.fallback_mode = False
+                logger.info(f"✅ Background embedding generation complete! Switched to embedding mode with {len(self.products_with_embeddings)} products")
+            else:
+                logger.warning("Background embedding generation failed, staying in keyword mode")
+                
+        except Exception as e:
+            logger.error(f"Background embedding generation failed: {e}")
+            # Stay in keyword mode 

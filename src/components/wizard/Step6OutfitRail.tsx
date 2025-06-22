@@ -412,11 +412,11 @@ export const Step6OutfitRail: React.FC = () => {
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {visibleItems.map((item) => (
           <div 
             key={item.id} 
-            className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+            className={`bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
               removingItems.has(item.id) 
                 ? 'opacity-0 transform scale-95 -translate-x-4' 
                 : 'opacity-100 transform scale-100 translate-x-0'
@@ -425,16 +425,16 @@ export const Step6OutfitRail: React.FC = () => {
             <img
               src={item.image}
               alt={item.name}
-              className="w-full h-48 object-cover"
+              className="w-full h-32 object-cover"
             />
-            <div className="p-4">
+            <div className="p-3">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="font-medium text-gray-900">{item.name}</h3>
-                <span className="font-medium text-gray-900">{item.price}</span>
+                <h3 className="font-medium text-gray-900 text-sm">{item.name}</h3>
+                <span className="font-medium text-gray-900 text-sm">{item.price}</span>
               </div>
-              <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+              <p className="text-xs text-gray-600 mb-3">{item.description}</p>
               {storeId && (
-                <div className="flex items-center text-xs text-gray-500 mb-4">
+                <div className="flex items-center text-xs text-gray-500 mb-3">
                   <MapPin className="h-3 w-3 mr-1" />
                   {item.location}
                 </div>
@@ -445,43 +445,43 @@ export const Step6OutfitRail: React.FC = () => {
                   onClick={() => handleTryOn(item.id)}
                   variant="secondary"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 text-xs py-1"
                 >
-                  <Eye className="h-4 w-4 mr-1" />
+                  <Eye className="h-3 w-3 mr-1" />
                   Try On
                 </Button>
                 
                 <button
                   onClick={() => toggleLike(item.id)}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
+                  className={`p-1.5 rounded-md transition-all duration-200 ${
                     item.liked 
                       ? 'bg-green-100 text-green-600 scale-110' 
                       : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
                   }`}
                 >
-                  <ThumbsUp className="h-4 w-4" />
+                  <ThumbsUp className="h-3 w-3" />
                 </button>
                 
                 <button
                   onClick={() => toggleDislike(item.id)}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
+                  className={`p-1.5 rounded-md transition-all duration-200 ${
                     item.disliked 
                       ? 'bg-red-100 text-red-600' 
                       : 'bg-gray-100 text-gray-400 hover:text-red-500 hover:scale-105'
                   }`}
                 >
-                  <ThumbsDown className="h-4 w-4" />
+                  <ThumbsDown className="h-3 w-3" />
                 </button>
                 
                 <button
                   onClick={() => toggleCart(item.id)}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
+                  className={`p-1.5 rounded-md transition-all duration-200 ${
                     item.addedToCart 
                       ? 'bg-gray-900 text-white scale-110' 
                       : 'bg-gray-100 text-gray-400 hover:text-gray-600 hover:scale-105'
                   }`}
                 >
-                  <ShoppingCart className="h-4 w-4" />
+                  <ShoppingCart className="h-3 w-3" />
                 </button>
               </div>
             </div>
