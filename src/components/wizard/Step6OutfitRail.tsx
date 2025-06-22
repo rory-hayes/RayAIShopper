@@ -54,7 +54,31 @@ const mockItems: ClothingItem[] = [
 
 export const Step6OutfitRail: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
-  const [items, setItems] = useState<ClothingItem[]>(mockItems)
+  
+  // Convert real recommendations to ClothingItem format
+  const convertToClothingItems = (recommendations: any[]): ClothingItem[] => {
+    return recommendations.map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description || `${item.article_type} in ${item.color}`,
+      image: item.image,
+      price: `$${item.price}`,
+      location: item.storeLocation || 'A1-B2',
+      liked: false,
+      disliked: false,
+      addedToCart: false
+    }))
+  }
+
+  // Use real recommendations if available, otherwise fall back to mock data
+  const initialItems = formData.selectedItems && formData.selectedItems.length > 0 
+    ? convertToClothingItems(formData.selectedItems)
+    : mockItems
+
+  console.log('🔥 DEBUG Step6: formData.selectedItems:', formData.selectedItems)
+  console.log('🔥 DEBUG Step6: initialItems:', initialItems)
+
+  const [items, setItems] = useState<ClothingItem[]>(initialItems)
   const [showTryOn, setShowTryOn] = useState<string | null>(null)
   const [showCart, setShowCart] = useState(false)
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set())
