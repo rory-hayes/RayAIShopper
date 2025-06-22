@@ -235,7 +235,7 @@ Focus on actionable details that would help find similar clothing items."""
         self, 
         user_profile: UserProfile, 
         recommendations: List[ProductItem],
-        inspiration_analysis: str = ""
+        inspiration_analysis: Optional[Dict[str, Any]] = None
     ) -> List[ProductItem]:
         """
         Use GPT-4o mini to rank and enhance recommendations based on user profile
@@ -250,6 +250,24 @@ Focus on actionable details that would help find similar clothing items."""
             summary = f"ID: {item.id}, Name: {item.name}, Type: {item.article_type}, Color: {item.color}, Usage: {item.usage}"
             product_summaries.append(summary)
         
+        # Format inspiration analysis if available
+        inspiration_text = ""
+        if inspiration_analysis:
+            if isinstance(inspiration_analysis, dict):
+                # Convert dict to readable text
+                parts = []
+                if inspiration_analysis.get("style_notes"):
+                    parts.append(f"Style: {inspiration_analysis['style_notes']}")
+                if inspiration_analysis.get("items"):
+                    parts.append(f"Items seen: {', '.join(inspiration_analysis['items'])}")
+                if inspiration_analysis.get("colors"):
+                    parts.append(f"Colors: {', '.join(inspiration_analysis['colors'])}")
+                if inspiration_analysis.get("occasions"):
+                    parts.append(f"Occasions: {', '.join(inspiration_analysis['occasions'])}")
+                inspiration_text = " | ".join(parts)
+            else:
+                inspiration_text = str(inspiration_analysis)
+        
         user_prompt = f"""
         User Profile:
         - Shopping Intent: {user_profile.shopping_prompt}
@@ -258,7 +276,7 @@ Focus on actionable details that would help find similar clothing items."""
         - Preferred Colors: {', '.join(user_profile.preferred_colors)}
         - Size: {user_profile.size}
         
-        {f"Inspiration Analysis: {inspiration_analysis}" if inspiration_analysis else ""}
+        {f"Inspiration Analysis: {inspiration_text}" if inspiration_text else ""}
         
         Products to rank:
         {chr(10).join(product_summaries)}

@@ -653,10 +653,12 @@ class VectorSearchService:
             except Exception as e:
                 logger.error(f"Error in immediate embedding generation: {e}")
                 self.products_with_embeddings = []
+                # Don't raise the error - let it fall back to keyword search
                 
         except Exception as e:
             logger.error(f"Error in immediate embedding setup: {e}")
             self.products_with_embeddings = []
+            # Don't raise the error - let it fall back to keyword search
     
     async def _generate_remaining_embeddings(self, remaining_products: List[Dict]):
         """
