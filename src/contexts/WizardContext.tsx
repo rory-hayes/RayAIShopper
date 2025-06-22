@@ -54,39 +54,8 @@ const WizardContext = createContext<WizardContextType | undefined>(undefined)
 export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(wizardReducer, initialState)
 
-  // Try to get chat context if available (will be undefined if chat context isn't loaded yet)
-  let chatContext: any = null
-  try {
-    const { useChatContext } = require('../contexts/ChatContext')
-    chatContext = useChatContext()
-  } catch (error) {
-    // Chat context not available, continue without it
-  }
-
   const nextStep = () => {
     dispatch({ type: 'NEXT_STEP' })
-    
-    // Update chat context when moving to next step
-    if (chatContext) {
-      const newStep = Math.min(state.currentStep + 1, 8)
-      const stepSummary = getStepSummary(newStep)
-      
-      chatContext.updateContext({
-        current_step: newStep,
-        step_name: getStepName(newStep),
-        user_profile: {
-          shopping_prompt: state.formData.shoppingPrompt,
-          gender: state.formData.gender,
-          preferred_styles: state.formData.preferredStyles,
-          preferred_colors: state.formData.preferredColors,
-          preferred_article_types: state.formData.preferredArticleTypes
-        }
-      })
-
-      if (newStep > 1) {
-        chatContext.addSystemUpdate(`✅ Advanced to ${getStepName(newStep)}! ${stepSummary}`)
-      }
-    }
   }
 
   const prevStep = () => dispatch({ type: 'PREV_STEP' })
@@ -98,34 +67,6 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     
     dispatch({ type: 'UPDATE_FORM_DATA', payload: data })
     
-    // Update chat context with new user data
-    if (chatContext) {
-      const updatedProfile = {
-        shopping_prompt: data.shoppingPrompt || state.formData.shoppingPrompt,
-        gender: data.gender || state.formData.gender,
-        preferred_styles: data.preferredStyles || state.formData.preferredStyles,
-        preferred_colors: data.preferredColors || state.formData.preferredColors,
-        preferred_article_types: data.preferredArticleTypes || state.formData.preferredArticleTypes
-      }
-
-      chatContext.updateContext({
-        user_profile: updatedProfile,
-        current_recommendations: data.selectedItems || state.formData.selectedItems
-      })
-
-      // Add contextual updates for significant changes
-      if (data.shoppingPrompt) {
-        chatContext.addSystemUpdate(`🎯 Shopping goal updated: "${data.shoppingPrompt}"`)
-      }
-      if (data.preferredStyles && data.preferredStyles.length > 0) {
-        chatContext.addSystemUpdate(`✨ Style preferences updated: ${data.preferredStyles.join(', ')}`)
-      }
-      if (data.selectedItems && data.selectedItems.length > 0) {
-        chatContext.addSystemUpdate(`🛍️ Items selected: ${data.selectedItems.length} items added to your selection`)
-      }
-    }
-    
-    // Log after dispatch (though this won't show the updated state immediately due to async nature)
     console.log('🔥 WIZARD CONTEXT: dispatch called, state will update asynchronously')
   }
   

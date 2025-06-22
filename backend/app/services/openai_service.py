@@ -331,21 +331,31 @@ Focus on actionable details that would help find similar clothing items."""
         Chat with GPT-4o mini assistant about fashion and recommendations
         Returns (response_message, context_updated)
         """
-        system_prompt = """You are Ray, a helpful fashion assistant. You help users find the perfect clothing items and provide style advice.
+        system_prompt = """You are Ray, a world-class fashion stylist and color expert with years of experience in high-end fashion. You're passionate about helping people discover their personal style and feel confident in their clothing choices.
 
-        You have access to the user's current context including their shopping preferences, current recommendations, and session history.
+        Your expertise includes:
+        - Color theory and seasonal color analysis
+        - Style archetypes and body type recommendations  
+        - Fashion trends and timeless pieces
+        - Accessory coordination and styling
+        - Fabric knowledge and garment construction
+        - Occasion-appropriate dressing
+        - Mix-and-match outfit creation
+        - Personal shopping and wardrobe building
 
-        Guidelines:
-        - Be friendly and conversational
-        - Provide specific fashion advice based on their stated preferences
-        - Reference their style preferences, colors, and shopping goals when relevant
-        - Ask clarifying questions when needed
-        - Help refine their search preferences
-        - Suggest outfit combinations from their current recommendations
-        - Be concise but helpful
-        - If they ask about specific items, reference their current recommendations
-        
-        If the user wants to update their preferences, indicate this in your response."""
+        Guidelines for your responses:
+        - Be enthusiastic and encouraging about fashion
+        - Provide specific, actionable styling advice
+        - Reference color theory when discussing color combinations
+        - Suggest outfit formulas and styling tricks
+        - Mention specific brands or style inspirations when relevant
+        - Ask clarifying questions to better understand their needs
+        - Use fashion terminology appropriately but explain when needed
+        - Be inclusive and body-positive in all recommendations
+        - Focus on building confidence through great style choices
+        - Reference their current recommendations and preferences from context
+
+        Tone: Warm, knowledgeable, enthusiastic, and supportive - like a trusted friend who happens to be a fashion expert."""
         
         # Prepare conversation history
         messages = [{"role": "system", "content": system_prompt}]
@@ -362,10 +372,13 @@ Focus on actionable details that would help find similar clothing items."""
                 context_parts.append(f"- Gender: {profile.get('gender', 'Not specified')}")
                 
                 if profile.get('preferred_styles'):
-                    context_parts.append(f"- Preferred Styles: {', '.join(profile['preferred_styles'])}")
+                    context_parts.append(f"- Style Preferences: {', '.join(profile['preferred_styles'])}")
                 
                 if profile.get('preferred_colors'):
-                    context_parts.append(f"- Preferred Colors: {', '.join(profile['preferred_colors'])}")
+                    context_parts.append(f"- Color Preferences: {', '.join(profile['preferred_colors'])}")
+                
+                if profile.get('preferred_article_types'):
+                    context_parts.append(f"- Preferred Items: {', '.join(profile['preferred_article_types'])}")
                 
                 if profile.get('age_range'):
                     context_parts.append(f"- Age Range: {profile['age_range']}")
@@ -373,49 +386,48 @@ Focus on actionable details that would help find similar clothing items."""
                 if profile.get('budget_range'):
                     context_parts.append(f"- Budget: {profile['budget_range']}")
             
-            # Add search query information
-            if "search_query" in context:
-                context_parts.append(f"Current Search Query: {context['search_query']}")
+            # Add journey status
+            if "journey_status" in context:
+                status = context["journey_status"]
+                context_parts.append(f"Journey Progress:")
+                context_parts.append(f"- Has inspiration images: {status.get('has_inspiration_images', False)} ({status.get('inspiration_image_count', 0)} images)")
+                context_parts.append(f"- Has selfie for try-on: {status.get('has_selfie', False)}")
+                context_parts.append(f"- Current recommendations: {status.get('recommendation_count', 0)} items")
             
-            # Add inspiration analysis if available
-            if "inspiration_analysis" in context and context["inspiration_analysis"]:
-                analysis = context["inspiration_analysis"]
-                context_parts.append("Inspiration Image Analysis:")
-                
-                if analysis.get('style_notes'):
-                    context_parts.append(f"- Style Notes: {analysis['style_notes']}")
-                
-                if analysis.get('items'):
-                    context_parts.append(f"- Items Identified: {', '.join(analysis['items'])}")
-                
-                if analysis.get('colors'):
-                    context_parts.append(f"- Colors from Images: {', '.join(analysis['colors'])}")
-                
-                if analysis.get('occasions'):
-                    context_parts.append(f"- Occasions: {', '.join(analysis['occasions'])}")
-            
-            # Add current recommendations info
+            # Add current recommendations info with detailed styling context
             if "current_recommendations" in context:
                 recs = context["current_recommendations"]
                 if recs and len(recs) > 0:
-                    context_parts.append(f"Current Recommendations: {len(recs)} items available")
-                    # Add a few example items
-                    for i, rec in enumerate(recs[:3]):
+                    context_parts.append(f"Current Recommendations ({len(recs)} items):")
+                    for i, rec in enumerate(recs[:5]):  # Show first 5 items in detail
                         if isinstance(rec, dict):
                             name = rec.get('name', 'Unknown item')
                             article_type = rec.get('article_type', '')
                             color = rec.get('color', '')
-                            context_parts.append(f"  {i+1}. {name} ({article_type} in {color})")
-                    if len(recs) > 3:
-                        context_parts.append(f"  ... and {len(recs) - 3} more items")
+                            usage = rec.get('usage', '')
+                            context_parts.append(f"  {i+1}. {name}")
+                            if article_type:
+                                context_parts.append(f"     - Type: {article_type}")
+                            if color:
+                                context_parts.append(f"     - Color: {color}")
+                            if usage:
+                                context_parts.append(f"     - Best for: {usage}")
+                    if len(recs) > 5:
+                        context_parts.append(f"  ... and {len(recs) - 5} more items available")
+                        
+                    # Add styling insights
+                    colors_in_recs = [rec.get('color', '') for rec in recs if rec.get('color')]
+                    unique_colors = list(set([c for c in colors_in_recs if c]))
+                    if unique_colors:
+                        context_parts.append(f"Color palette in recommendations: {', '.join(unique_colors[:5])}")
         
         # Add context information to messages if available
         if context_parts:
             context_msg = "\n".join(context_parts)
-            messages.append({"role": "system", "content": f"Current Context:\n{context_msg}"})
+            messages.append({"role": "system", "content": f"Current Context:\n{context_msg}\n\nUse this information to provide personalized fashion advice."})
         
-        # Add conversation history (last 5 messages for context)
-        for msg in history[-5:]:
+        # Add conversation history (last 8 messages for better context)
+        for msg in history[-8:]:
             messages.append({"role": msg.role, "content": msg.content})
         
         # Add current message
@@ -425,22 +437,26 @@ Focus on actionable details that would help find similar clothing items."""
             response = await self.client.chat.completions.create(
                 model=settings.gpt_model,
                 messages=messages,
-                max_tokens=300,
-                temperature=0.7
+                max_tokens=400,  # Increased for more detailed fashion advice
+                temperature=0.8  # Slightly higher for more creative styling suggestions
             )
             
             assistant_response = response.choices[0].message.content.strip()
             
-            # Simple heuristic to detect if context should be updated
-            context_keywords = ["prefer", "like", "want", "looking for", "change", "update"]
-            context_updated = any(keyword in message.lower() for keyword in context_keywords)
+            # Enhanced context update detection for fashion-related changes
+            fashion_keywords = [
+                "prefer", "like", "want", "looking for", "change", "update", "style", "color",
+                "outfit", "occasion", "budget", "size", "fit", "trend", "classic", "formal",
+                "casual", "work", "party", "date", "wedding", "travel"
+            ]
+            context_updated = any(keyword in message.lower() for keyword in fashion_keywords)
             
-            logger.info("Generated chat response with enhanced context")
+            logger.info("Generated fashion expert chat response")
             return assistant_response, context_updated
             
         except Exception as e:
-            logger.error(f"Error in chat completion: {e}")
-            return "I'm sorry, I'm having trouble responding right now. Please try again.", False
+            logger.error(f"Error in fashion chat completion: {e}")
+            return "I'm sorry, I'm having trouble with my styling advice right now. Please try again in a moment!", False
     
     @openai_retry
     async def analyze_user_selfie(self, user_image_b64: str) -> Dict[str, Any]:
