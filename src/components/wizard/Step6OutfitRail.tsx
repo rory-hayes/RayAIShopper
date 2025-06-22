@@ -59,16 +59,6 @@ export const Step6OutfitRail: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
   const chatContext = useChatContext()
   
-  // COMPREHENSIVE DEBUGGING - Add at the very start
-  console.log('🔥🔥🔥 STEP6 COMPONENT LOADED 🔥🔥🔥')
-  console.log('🔥 STEP6 DEBUG: Full formData:', formData)
-  console.log('🔥 STEP6 DEBUG: formData.selectedItems:', formData.selectedItems)
-  console.log('🔥 STEP6 DEBUG: formData.selectedItems length:', formData.selectedItems?.length)
-  console.log('🔥 STEP6 DEBUG: formData.selectedItems type:', typeof formData.selectedItems)
-  console.log('🔥 STEP6 DEBUG: Array.isArray(formData.selectedItems):', Array.isArray(formData.selectedItems))
-  console.log('🔥 STEP6 DEBUG: first item:', formData.selectedItems?.[0])
-  console.log('🔥 STEP6 DEBUG: JSON.stringify first item:', JSON.stringify(formData.selectedItems?.[0], null, 2))
-  
   // Convert real recommendations to ClothingItem format
   const convertToClothingItems = (recommendations: RecommendationItem[]): ClothingItem[] => {
     return recommendations.map(item => ({
@@ -89,12 +79,6 @@ export const Step6OutfitRail: React.FC = () => {
     ? convertToClothingItems(formData.selectedItems)
     : mockItems
 
-  console.log('🔥 DEBUG Step6: formData.selectedItems:', formData.selectedItems)
-  console.log('🔥 DEBUG Step6: formData.selectedItems length:', formData.selectedItems?.length)
-  console.log('🔥 DEBUG Step6: formData.selectedItems type:', typeof formData.selectedItems)
-  console.log('🔥 DEBUG Step6: first item:', formData.selectedItems?.[0])
-  console.log('🔥 DEBUG Step6: initialItems:', initialItems)
-
   const [items, setItems] = useState<ClothingItem[]>(initialItems)
   const [showTryOn, setShowTryOn] = useState<string | null>(null)
   const [showCart, setShowCart] = useState(false)
@@ -102,6 +86,7 @@ export const Step6OutfitRail: React.FC = () => {
   const [refreshingItems, setRefreshingItems] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(formData.sessionId || null)
+  const [hasLoadedRecommendations, setHasLoadedRecommendations] = useState(false)
 
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
@@ -350,6 +335,11 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   useEffect(() => {
+    // Only fetch recommendations if we haven't already loaded them and have the necessary data
+    if (hasLoadedRecommendations || !formData.shoppingPrompt) {
+      return
+    }
+
     const fetchRecommendations = async () => {
       try {
         console.log('🔄 STEP6: Fetching recommendations...')
@@ -366,6 +356,9 @@ export const Step6OutfitRail: React.FC = () => {
         // Store session ID in both form data and local state
         setCurrentSessionId(response.session_id)
         updateFormData({ sessionId: response.session_id })
+
+        // Mark as loaded to prevent re-fetching
+        setHasLoadedRecommendations(true)
 
         // Sync with chat context
         if (chatContext) {
@@ -406,7 +399,7 @@ export const Step6OutfitRail: React.FC = () => {
     }
 
     fetchRecommendations()
-  }, [formData.shoppingPrompt, formData.preferredStyles, formData.preferredColors])
+  }, []) // Empty dependency array - only run once when component mounts
 
   if (showCart) {
     return (
