@@ -15,6 +15,7 @@ interface ChatContextType {
   addMessage: (message: ChatMessage) => void
   sendMessage: (content: string) => Promise<void>
   updateContext: (context: any) => void
+  setSessionId: (sessionId: string) => void
   openChat: () => void
   closeChat: () => void
   addSystemUpdate: (update: string) => void
@@ -137,6 +138,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       addMessage,
       sendMessage,
       updateContext,
+      setSessionId,
       openChat,
       closeChat,
       addSystemUpdate

@@ -107,16 +107,30 @@ export const Step6OutfitRail: React.FC = () => {
         return []
       }
       
-      const freshItems = await apiService.refreshRecommendations({
+      const freshItemsResponse = await apiService.refreshRecommendations({
         session_id: currentSessionId,
         exclude_ids: excludeIds,
         count
       })
 
-      console.log('✅ REFRESH: Received fresh items:', freshItems.recommendations.length)
+      console.log('✅ REFRESH: API Response:', freshItemsResponse)
+
+      // The refresh endpoint returns an array of ProductItems directly, not wrapped in recommendations
+      const freshItems = Array.isArray(freshItemsResponse) ? freshItemsResponse : []
+      
+      if (freshItems.length === 0) {
+        console.warn('⚠️ REFRESH: No fresh items received')
+        setToast({
+          message: 'No new recommendations available',
+          type: 'info'
+        })
+        return []
+      }
+
+      console.log('✅ REFRESH: Received fresh items:', freshItems.length)
 
       // Convert ProductItem[] to RecommendationItem[] format
-      const recommendationItems: RecommendationItem[] = freshItems.recommendations.map(item => ({
+      const recommendationItems: RecommendationItem[] = freshItems.map(item => ({
         id: item.id,
         name: item.name,
         category: item.category,
@@ -360,13 +374,19 @@ export const Step6OutfitRail: React.FC = () => {
         // Mark as loaded to prevent re-fetching
         setHasLoadedRecommendations(true)
 
-        // Sync with chat context
+        // Sync with chat context - use the current session ID
         if (chatContext) {
           chatContext.updateContext({
             session_id: response.session_id,
             user_profile: userProfile,
             current_recommendations: response.recommendations
           })
+          
+          // Also update the chat's session ID if it's different
+          if (chatContext.sessionId !== response.session_id) {
+            console.log('🤖 CHAT: Syncing session ID from', chatContext.sessionId, 'to', response.session_id)
+            chatContext.setSessionId(response.session_id)
+          }
         }
 
         // Convert ProductItem[] to RecommendationItem[] format

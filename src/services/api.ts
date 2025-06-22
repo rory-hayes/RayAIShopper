@@ -190,7 +190,7 @@ class ApiService {
   }
 
   // Refresh recommendations
-  async refreshRecommendations(request: RefreshRequest): Promise<{ recommendations: ProductItem[] }> {
+  async refreshRecommendations(request: RefreshRequest): Promise<ProductItem[]> {
     return this.makeRequest(API_ENDPOINTS.refresh, {
       method: 'POST',
       body: JSON.stringify(request),

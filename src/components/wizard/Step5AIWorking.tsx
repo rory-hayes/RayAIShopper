@@ -150,9 +150,9 @@ export const Step5AIWorking: React.FC = () => {
           throw new Error('No recommendations returned from backend')
         }
 
-        // Update form data with real recommendations
+        // Update form data with real recommendations - limit to 5 items
         try {
-          const selectedItems = response.recommendations.map((item, index) => {
+          const selectedItems = response.recommendations.slice(0, 5).map((item, index) => {
             console.log(`Processing item ${index}:`, item)
             return {
               id: item.id,
