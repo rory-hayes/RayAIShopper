@@ -20,7 +20,8 @@ const initialState: WizardState = {
     preferredArticleTypes: [],
     inspirationImages: [],
     selfieImage: null,
-    selectedItems: []
+    selectedItems: [],
+    sessionId: undefined
   }
 }
 

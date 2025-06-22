@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
+import { useChatContext } from '../../contexts/ChatContext'
 import { Button } from '../ui/Button'
 import { Toast } from '../ui/Toast'
-import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X, RefreshCw } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X, RefreshCw, Heart, Sparkles, Check, Loader2 } from 'lucide-react'
 import { ClothingItem, RecommendationItem } from '../../types'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
 import { convertToUserProfile, convertFromBase64, apiService } from '../../services/api'
@@ -56,6 +57,7 @@ const mockItems: ClothingItem[] = [
 
 export const Step6OutfitRail: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
+  const chatContext = useChatContext()
   
   // COMPREHENSIVE DEBUGGING - Add at the very start
   console.log('🔥🔥🔥 STEP6 COMPONENT LOADED 🔥🔥🔥')
@@ -109,9 +111,8 @@ export const Step6OutfitRail: React.FC = () => {
     try {
       console.log('🔄 REFRESH: Requesting fresh items, excluding:', excludeIds)
       
-      const userProfile = convertToUserProfile(formData)
       const freshItems = await apiService.refreshRecommendations({
-        user_profile: userProfile,
+        session_id: formData.sessionId || '', // Use session ID from form data
         exclude_ids: excludeIds,
         count
       })
@@ -336,6 +337,64 @@ export const Step6OutfitRail: React.FC = () => {
     
     return explanation
   }
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        console.log('🔄 STEP6: Fetching recommendations...')
+        
+        const userProfile = convertToUserProfile(formData)
+        const response = await apiService.getRecommendations({
+          user_profile: userProfile,
+          inspiration_images: formData.inspirationImages.map(img => convertFromBase64(img))
+        })
+
+        console.log('✅ STEP6: Received recommendations:', response.recommendations.length)
+        console.log('🔥 STEP6: Session ID from response:', response.session_id)
+
+        // Store session ID in form data for future API calls
+        updateFormData({ sessionId: response.session_id })
+
+        // Sync with chat context
+        if (chatContext) {
+          chatContext.updateContext({
+            session_id: response.session_id,
+            user_profile: userProfile,
+            current_recommendations: response.recommendations
+          })
+        }
+
+        // Convert ProductItem[] to RecommendationItem[] format
+        const recommendationItems: RecommendationItem[] = response.recommendations.map(item => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          price: 75, // Default price since ProductItem doesn't have price
+          image: item.image_url,
+          description: `${item.article_type} in ${item.color}`,
+          inStock: true,
+          storeLocation: item.store_location || 'Available in store',
+          similarity_score: item.similarity_score,
+          article_type: item.article_type,
+          color: item.color,
+          usage: item.usage
+        }))
+
+        // Convert to ClothingItem format and set
+        const clothingItems = convertToClothingItems(recommendationItems)
+        setItems(clothingItems)
+
+      } catch (error) {
+        console.error('❌ STEP6: Failed to fetch recommendations:', error)
+        setToast({
+          message: 'Failed to load recommendations. Please try again.',
+          type: 'error'
+        })
+      }
+    }
+
+    fetchRecommendations()
+  }, [formData.shoppingPrompt, formData.preferredStyles, formData.preferredColors, chatContext])
 
   if (showCart) {
     return (

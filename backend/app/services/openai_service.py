@@ -337,24 +337,85 @@ Focus on actionable details that would help find similar clothing items."""
 
         Guidelines:
         - Be friendly and conversational
-        - Provide specific fashion advice
+        - Provide specific fashion advice based on their stated preferences
+        - Reference their style preferences, colors, and shopping goals when relevant
         - Ask clarifying questions when needed
         - Help refine their search preferences
-        - Suggest outfit combinations
+        - Suggest outfit combinations from their current recommendations
         - Be concise but helpful
+        - If they ask about specific items, reference their current recommendations
         
         If the user wants to update their preferences, indicate this in your response."""
         
         # Prepare conversation history
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Add context information
-        if context:
-            context_msg = f"User Context: {json.dumps(context, indent=2)}"
-            messages.append({"role": "system", "content": context_msg})
+        # Build comprehensive context information
+        context_parts = []
         
-        # Add conversation history
-        for msg in history[-5:]:  # Last 5 messages for context
+        if context:
+            # Add user profile information
+            if "user_profile" in context:
+                profile = context["user_profile"]
+                context_parts.append(f"User Profile:")
+                context_parts.append(f"- Shopping Goal: {profile.get('shopping_prompt', 'Not specified')}")
+                context_parts.append(f"- Gender: {profile.get('gender', 'Not specified')}")
+                
+                if profile.get('preferred_styles'):
+                    context_parts.append(f"- Preferred Styles: {', '.join(profile['preferred_styles'])}")
+                
+                if profile.get('preferred_colors'):
+                    context_parts.append(f"- Preferred Colors: {', '.join(profile['preferred_colors'])}")
+                
+                if profile.get('age_range'):
+                    context_parts.append(f"- Age Range: {profile['age_range']}")
+                
+                if profile.get('budget_range'):
+                    context_parts.append(f"- Budget: {profile['budget_range']}")
+            
+            # Add search query information
+            if "search_query" in context:
+                context_parts.append(f"Current Search Query: {context['search_query']}")
+            
+            # Add inspiration analysis if available
+            if "inspiration_analysis" in context and context["inspiration_analysis"]:
+                analysis = context["inspiration_analysis"]
+                context_parts.append("Inspiration Image Analysis:")
+                
+                if analysis.get('style_notes'):
+                    context_parts.append(f"- Style Notes: {analysis['style_notes']}")
+                
+                if analysis.get('items'):
+                    context_parts.append(f"- Items Identified: {', '.join(analysis['items'])}")
+                
+                if analysis.get('colors'):
+                    context_parts.append(f"- Colors from Images: {', '.join(analysis['colors'])}")
+                
+                if analysis.get('occasions'):
+                    context_parts.append(f"- Occasions: {', '.join(analysis['occasions'])}")
+            
+            # Add current recommendations info
+            if "current_recommendations" in context:
+                recs = context["current_recommendations"]
+                if recs and len(recs) > 0:
+                    context_parts.append(f"Current Recommendations: {len(recs)} items available")
+                    # Add a few example items
+                    for i, rec in enumerate(recs[:3]):
+                        if isinstance(rec, dict):
+                            name = rec.get('name', 'Unknown item')
+                            article_type = rec.get('article_type', '')
+                            color = rec.get('color', '')
+                            context_parts.append(f"  {i+1}. {name} ({article_type} in {color})")
+                    if len(recs) > 3:
+                        context_parts.append(f"  ... and {len(recs) - 3} more items")
+        
+        # Add context information to messages if available
+        if context_parts:
+            context_msg = "\n".join(context_parts)
+            messages.append({"role": "system", "content": f"Current Context:\n{context_msg}"})
+        
+        # Add conversation history (last 5 messages for context)
+        for msg in history[-5:]:
             messages.append({"role": msg.role, "content": msg.content})
         
         # Add current message
@@ -374,7 +435,7 @@ Focus on actionable details that would help find similar clothing items."""
             context_keywords = ["prefer", "like", "want", "looking for", "change", "update"]
             context_updated = any(keyword in message.lower() for keyword in context_keywords)
             
-            logger.info("Generated chat response")
+            logger.info("Generated chat response with enhanced context")
             return assistant_response, context_updated
             
         except Exception as e:

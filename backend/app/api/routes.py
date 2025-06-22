@@ -117,17 +117,24 @@ async def chat_with_assistant(request: ChatRequest, recommendation_service = Dep
     try:
         logger.info(f"Received chat request for session {request.session_id}")
         
+        # Build comprehensive context
+        context = {}
+        
         # Get session context if available
-        context = None
         if request.session_id:
-            context = recommendation_service.get_session_context(request.session_id)
+            session_context = recommendation_service.get_session_context(request.session_id)
+            if session_context:
+                context.update(session_context)
         
         # Merge request context with session context
         if request.context:
-            if context:
-                context.update(request.context)
-            else:
-                context = request.context
+            context.update(request.context)
+        
+        # Add current recommendations to context if available
+        if "current_recommendations" not in context and request.context:
+            # Try to get current recommendations from request context
+            if "current_recommendations" in request.context:
+                context["current_recommendations"] = request.context["current_recommendations"]
         
         # Chat with assistant
         response_message, context_updated = await openai_service.chat_with_assistant(

@@ -69,14 +69,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Send to backend chat endpoint
       const response = await apiService.chat({
         message: content,
-        context: {
-          ...currentContext,
-          conversation_history: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.timestamp
-          }))
-        }
+        context: currentContext,
+        history: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp
+        })),
+        session_id: sessionId || undefined
       })
 
       // Add assistant response
@@ -86,6 +85,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         timestamp: new Date().toISOString()
       }
       addMessage(assistantMessage)
+
+      // Update session ID if provided
+      if (response.session_id && !sessionId) {
+        setSessionId(response.session_id)
+      }
 
     } catch (error) {
       console.error('Chat error:', error)

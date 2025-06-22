@@ -9,6 +9,7 @@ export interface WizardState {
     inspirationImages: File[]
     selfieImage: File | null
     selectedItems: RecommendationItem[]
+    sessionId?: string
   }
 }
 

@@ -47,21 +47,22 @@ export interface RecommendationResponse {
 
 export interface ChatRequest {
   message: string
-  context: {
-    user_profile: UserProfile
-    current_recommendations?: ProductItem[]
-    conversation_history?: Array<{
-      role: 'user' | 'assistant'
-      content: string
-      timestamp: string
-    }>
+  context?: {
+    [key: string]: any
   }
+  history?: Array<{
+    role: 'user' | 'assistant'
+    content: string
+    timestamp?: string
+  }>
+  session_id?: string
 }
 
 export interface ChatResponse {
   response: string
   context_updated: boolean
   suggestions?: string[]
+  session_id?: string
 }
 
 export interface TryonRequest {
@@ -83,7 +84,7 @@ export interface FeedbackRequest {
 }
 
 export interface RefreshRequest {
-  user_profile: UserProfile
+  session_id: string
   exclude_ids: string[]
   count: number
 }
