@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { Toast } from '../ui/Toast'
 import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X } from 'lucide-react'
 import { ClothingItem, RecommendationItem } from '../../types'
+import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
+import { convertToUserProfile, convertFromBase64 } from '../../services/api'
 
 const mockItems: ClothingItem[] = [
   {
@@ -158,8 +160,43 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleTryOn = (itemId: string) => {
-    setShowTryOn(itemId)
+    const item = items.find(i => i.id === itemId)
+    if (!item) return
+
+    // Check if user has a selfie
+    if (!formData.selfieImage) {
+      setToast({
+        message: 'Please upload a selfie in Step 4 to use virtual try-on',
+        type: 'info'
+      })
+      return
+    }
+
+    // Convert selfie to base64 string
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64String = reader.result as string
+      const base64Data = convertFromBase64(base64String)
+      
+      // Set the try-on data and show modal
+      setShowTryOn(itemId)
+      setTryOnData({
+        productId: itemId,
+        productName: item.name,
+        productImage: item.image,
+        userSelfie: base64Data
+      })
+    }
+    reader.readAsDataURL(formData.selfieImage)
   }
+
+  // Add state for try-on data
+  const [tryOnData, setTryOnData] = useState<{
+    productId: string
+    productName: string
+    productImage: string
+    userSelfie: string
+  } | null>(null)
 
   const handleContinue = () => {
     // Get selected items and convert back to RecommendationItem format
@@ -395,6 +432,21 @@ export const Step6OutfitRail: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
+      {/* Virtual Try-On Modal */}
+      {showTryOn && tryOnData && (
+        <VirtualTryOnModal
+          isOpen={!!showTryOn}
+          onClose={() => {
+            setShowTryOn(null)
+            setTryOnData(null)
+          }}
+          productId={tryOnData.productId}
+          productName={tryOnData.productName}
+          productImage={tryOnData.productImage}
+          userSelfie={tryOnData.userSelfie}
+        />
+      )}
+
       {/* Toast notification */}
       {toast && (
         <Toast

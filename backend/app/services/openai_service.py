@@ -382,6 +382,77 @@ Focus on actionable details that would help find similar clothing items."""
             return "I'm sorry, I'm having trouble responding right now. Please try again.", False
     
     @openai_retry
+    async def analyze_user_selfie(self, user_image_b64: str) -> Dict[str, Any]:
+        """
+        Analyze user's selfie with GPT-4o Vision to extract detailed characteristics
+        for high-fidelity virtual try-on generation
+        """
+        system_prompt = """You are a professional fashion stylist and image analyst. Analyze this person's photo and extract detailed characteristics that will help create a virtual try-on image that looks as close as possible to the original person.
+
+        Focus on:
+        1. Physical characteristics (age range, build, posture)
+        2. Facial features (hair color/style, skin tone, facial structure)
+        3. Current pose and angle
+        4. Background and lighting
+        5. Current clothing style visible
+        6. Overall aesthetic and vibe
+
+        Return detailed JSON with specific descriptive terms that can be used in DALL-E prompts."""
+
+        user_prompt = """Analyze this person's photo and provide detailed characteristics for virtual try-on generation. Be specific about physical features, pose, lighting, and style that should be preserved in a generated image.
+
+        Return JSON format:
+        {
+            "physical_description": "detailed description of the person",
+            "facial_features": "hair, skin tone, facial structure details",
+            "pose_and_angle": "current pose, angle, body position",
+            "lighting_and_background": "lighting style, background description",
+            "current_style": "visible clothing and style elements",
+            "age_range": "estimated age range",
+            "build_type": "body type/build description",
+            "overall_vibe": "aesthetic and mood of the photo"
+        }"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",  # Use GPT-4o for vision analysis
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user", 
+                        "content": [
+                            {"type": "text", "text": user_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{user_image_b64}"}
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500,
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            
+            analysis = json.loads(response.choices[0].message.content)
+            logger.info("Analyzed user selfie with GPT-4o Vision")
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Error analyzing user selfie: {e}")
+            # Return fallback analysis
+            return {
+                "physical_description": "a person",
+                "facial_features": "natural features",
+                "pose_and_angle": "standing naturally",
+                "lighting_and_background": "natural lighting",
+                "current_style": "casual style",
+                "age_range": "adult",
+                "build_type": "average build",
+                "overall_vibe": "friendly and approachable"
+            }
+
+    @openai_retry
     async def generate_virtual_tryon(
         self, 
         user_image_b64: str, 
@@ -389,30 +460,105 @@ Focus on actionable details that would help find similar clothing items."""
         style_prompt: str = None
     ) -> Tuple[str, str]:
         """
-        Generate virtual try-on image using DALL-E
+        Generate high-fidelity virtual try-on image using DALL-E
+        First analyzes the user's selfie, then creates a detailed prompt for maximum similarity
         Returns (image_url, generation_prompt)
         """
-        # Create detailed prompt for DALL-E
-        base_prompt = f"""A person wearing {product_item.name}, {product_item.article_type} in {product_item.color} color, {product_item.usage} style, photorealistic, high quality, fashion photography style"""
-        
-        if style_prompt:
-            full_prompt = f"{base_prompt}, {style_prompt}"
-        else:
-            full_prompt = base_prompt
-        
         try:
+            # Step 1: Analyze the user's selfie to extract characteristics
+            logger.info(f"Analyzing user selfie for virtual try-on with product {product_item.id}")
+            user_analysis = await self.analyze_user_selfie(user_image_b64)
+            
+            # Step 2: Create detailed DALL-E prompt combining user characteristics with product
+            prompt_parts = []
+            
+            # Start with the analyzed person description
+            if user_analysis.get("physical_description"):
+                prompt_parts.append(user_analysis["physical_description"])
+            
+            # Add facial features for consistency
+            if user_analysis.get("facial_features"):
+                prompt_parts.append(f"with {user_analysis['facial_features']}")
+            
+            # Add the product they're wearing
+            product_description = f"wearing {product_item.name}"
+            if product_item.article_type and product_item.article_type.lower() not in product_item.name.lower():
+                product_description += f", {product_item.article_type}"
+            if product_item.color and product_item.color.lower() not in product_item.name.lower():
+                product_description += f" in {product_item.color}"
+            
+            prompt_parts.append(product_description)
+            
+            # Add pose and positioning
+            if user_analysis.get("pose_and_angle"):
+                prompt_parts.append(user_analysis["pose_and_angle"])
+            
+            # Add lighting and background for consistency
+            if user_analysis.get("lighting_and_background"):
+                prompt_parts.append(user_analysis["lighting_and_background"])
+            
+            # Add style context
+            style_context = f"{product_item.usage} style" if product_item.usage else "casual style"
+            if user_analysis.get("overall_vibe"):
+                style_context += f", {user_analysis['overall_vibe']}"
+            prompt_parts.append(style_context)
+            
+            # Add quality and photography style
+            prompt_parts.append("high quality portrait photography, photorealistic, detailed, sharp focus")
+            
+            # Add custom style prompt if provided
+            if style_prompt:
+                prompt_parts.append(style_prompt)
+            
+            # Combine all parts into final prompt
+            full_prompt = ", ".join(prompt_parts)
+            
+            # Ensure prompt isn't too long (DALL-E has limits)
+            if len(full_prompt) > 1000:
+                # Prioritize most important elements
+                essential_parts = [
+                    user_analysis.get("physical_description", "a person"),
+                    user_analysis.get("facial_features", ""),
+                    product_description,
+                    user_analysis.get("pose_and_angle", ""),
+                    "high quality portrait photography, photorealistic"
+                ]
+                full_prompt = ", ".join([part for part in essential_parts if part])
+            
+            logger.info(f"Generated detailed prompt for virtual try-on: {full_prompt[:200]}...")
+            
+            # Step 3: Generate image with DALL-E
             response = await self.client.images.generate(
                 model="dall-e-3",
                 prompt=full_prompt,
                 size="1024x1024",
-                quality="standard",
+                quality="hd",  # Use HD quality for better results
+                style="natural",  # Natural style for realistic photos
                 n=1
             )
             
             image_url = response.data[0].url
-            logger.info(f"Generated virtual try-on image for product {product_item.id}")
+            logger.info(f"Successfully generated high-fidelity virtual try-on for product {product_item.id}")
             return image_url, full_prompt
             
         except Exception as e:
             logger.error(f"Error generating virtual try-on: {e}")
-            raise 
+            # Fallback to basic generation if detailed analysis fails
+            try:
+                basic_prompt = f"A person wearing {product_item.name}, {product_item.article_type} in {product_item.color}, high quality portrait photography, photorealistic"
+                
+                response = await self.client.images.generate(
+                    model="dall-e-3",
+                    prompt=basic_prompt,
+                    size="1024x1024",
+                    quality="standard",
+                    n=1
+                )
+                
+                image_url = response.data[0].url
+                logger.info(f"Generated fallback virtual try-on for product {product_item.id}")
+                return image_url, basic_prompt
+                
+            except Exception as fallback_error:
+                logger.error(f"Fallback virtual try-on generation also failed: {fallback_error}")
+                raise 

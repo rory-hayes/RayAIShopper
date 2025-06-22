@@ -88,6 +88,20 @@ export interface RefreshRequest {
   count: number
 }
 
+// Add new interface for the enhanced try-on request
+export interface EnhancedTryonRequest {
+  product_id: string
+  user_image: string // base64
+  style_prompt?: string
+}
+
+export interface EnhancedTryonResponse {
+  generated_image_url: string
+  product_id: string
+  generation_prompt: string
+  success: boolean
+}
+
 class ApiService {
   private baseURL: string
   private timeout: number
@@ -267,4 +281,21 @@ export const convertFromBase64 = (base64String: any): string => {
     console.error('Error in convertFromBase64 replace operation:', error, base64String?.substring(0, 50))
     return ''
   }
-} 
+}
+
+// Enhanced virtual try-on method
+export const virtualTryOn = async (request: EnhancedTryonRequest): Promise<EnhancedTryonResponse> => {
+  const response = await fetch(`${API_CONFIG.baseURL}/tryon`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Virtual try-on failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}; 
