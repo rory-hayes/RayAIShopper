@@ -28,6 +28,12 @@ export const Step5AIWorking: React.FC = () => {
         // Convert form data to API format
         const userProfile = convertToUserProfile(formData)
         console.log('User Profile:', userProfile)
+        console.log('🔥 STEP5 DEBUG: Detailed User Profile:')
+        console.log('  - shopping_prompt:', userProfile.shopping_prompt)
+        console.log('  - gender:', userProfile.gender)
+        console.log('  - preferred_styles:', userProfile.preferred_styles)
+        console.log('  - preferred_colors:', userProfile.preferred_colors)
+        console.log('  - size:', userProfile.size)
 
         // Prepare inspiration images with robust error handling
         let inspirationImages: string[] = []
