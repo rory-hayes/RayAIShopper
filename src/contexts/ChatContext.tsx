@@ -43,6 +43,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [currentContext, setCurrentContext] = useState<any>({})
   const [lastWizardStep, setLastWizardStep] = useState<number>(1)
+  const [hasAddedStepMessage, setHasAddedStepMessage] = useState<Set<number>>(new Set())
 
   // Initialize chat with welcome message
   useEffect(() => {
@@ -162,11 +163,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Update context
     setCurrentContext(comprehensiveContext)
     
-    // Add step progression messages
-    if (currentStep > lastWizardStep) {
+    // Only add step progression message if we haven't already added one for this step
+    if (currentStep > lastWizardStep && !hasAddedStepMessage.has(currentStep)) {
       const stepMessage = getStepTransitionMessage(lastWizardStep, currentStep, formData)
       if (stepMessage) {
         addSystemUpdate(stepMessage)
+        setHasAddedStepMessage(prev => {
+          const newSet = new Set(prev)
+          newSet.add(currentStep)
+          return newSet
+        })
       }
       setLastWizardStep(currentStep)
     }

@@ -28,17 +28,10 @@ export const ChatAssistant: React.FC = () => {
     if (shouldShowChat && !hasInitialized) {
       console.log('🤖 CHAT: Initializing with full wizard context at Step 6')
       syncWithWizard({ formData, currentStep })
-      
-      // Add a comprehensive fashion summary message
-      setTimeout(() => {
-        const summaryMessage = generateFashionSummary(formData)
-        addSystemUpdate(summaryMessage)
-        setShowNotification(true) // Show notification badge
-      }, 1000)
-      
+      setShowNotification(true) // Show notification badge
       setHasInitialized(true)
     }
-  }, [shouldShowChat, currentStep, formData, syncWithWizard, hasInitialized, addSystemUpdate])
+  }, [shouldShowChat, currentStep, formData, syncWithWizard, hasInitialized])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

@@ -367,7 +367,8 @@ export const Step6OutfitRail: React.FC = () => {
     
     explanation += `, and your request for "${occasion}", I've curated these pieces that perfectly match your aesthetic and occasion needs.`
     
-    if (formData.size) {
+    // Type-safe check for size property
+    if ('size' in formData && formData.size) {
       explanation += ` All items are available in your size (${formData.size}).`
     }
     
@@ -377,18 +378,6 @@ export const Step6OutfitRail: React.FC = () => {
   useEffect(() => {
     // Only fetch recommendations if we haven't already loaded them and have the necessary data
     if (hasLoadedRecommendations || !formData.shoppingPrompt) {
-      // If we already have recommendations, sync with chat context
-      if (hasLoadedRecommendations && chatContext && currentSessionId) {
-        console.log('🤖 CHAT: Syncing existing recommendations with chat context')
-        const userProfile = convertToUserProfile(formData)
-        chatContext.syncWithWizard({
-          formData: {
-            ...formData,
-            sessionId: currentSessionId
-          },
-          currentStep: 6
-        })
-      }
       return
     }
 
@@ -412,36 +401,10 @@ export const Step6OutfitRail: React.FC = () => {
         // Mark as loaded to prevent re-fetching
         setHasLoadedRecommendations(true)
 
-        // Sync with chat context - pass complete wizard state
-        if (chatContext) {
-          console.log('🤖 CHAT: Initializing chat context with full wizard data')
-          chatContext.syncWithWizard({
-            formData: {
-              ...formData,
-              sessionId: response.session_id,
-              selectedItems: response.recommendations.map(item => ({
-                id: item.id,
-                name: item.name,
-                category: item.category,
-                price: 75,
-                image: item.image_url,
-                description: `${item.article_type} in ${item.color}`,
-                inStock: true,
-                storeLocation: item.store_location || 'Available in store',
-                similarity_score: item.similarity_score,
-                article_type: item.article_type,
-                color: item.color,
-                usage: item.usage
-              }))
-            },
-            currentStep: 6
-          })
-          
-          // Set session ID in chat context
-          if (chatContext.sessionId !== response.session_id) {
-            console.log('🤖 CHAT: Setting session ID in chat context:', response.session_id)
-            chatContext.setSessionId(response.session_id)
-          }
+        // Set session ID in chat context
+        if (chatContext && chatContext.sessionId !== response.session_id) {
+          console.log('🤖 CHAT: Setting session ID in chat context:', response.session_id)
+          chatContext.setSessionId(response.session_id)
         }
 
         // Convert ProductItem[] to RecommendationItem[] format

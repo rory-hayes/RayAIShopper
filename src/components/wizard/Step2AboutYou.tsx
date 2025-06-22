@@ -6,8 +6,7 @@ import { Select } from '../ui/Select'
 
 const genderOptions = [
   { value: 'men', label: 'Men' },
-  { value: 'women', label: 'Women' },
-  { value: 'other', label: 'Other' }
+  { value: 'women', label: 'Women' }
 ]
 
 const styleOptions = [
@@ -21,14 +20,24 @@ const colorOptions = [
   'Orange', 'Gold', 'Silver', 'Cream', 'Burgundy', 'Teal'
 ]
 
-// Article types from actual CSV data, grouped by category
-const articleTypeOptions = {
-  'Topwear': ['Tshirts', 'Shirts', 'Kurtas', 'Tops', 'Sweatshirts', 'Jackets', 'Sweaters', 'Kurtis', 'Tunics'],
-  'Bottomwear': ['Jeans', 'Shorts', 'Track Pants', 'Trousers', 'Skirts', 'Capris', 'Leggings', 'Patiala'],
-  'Footwear': ['Casual Shoes', 'Sports Shoes', 'Heels', 'Flip Flops', 'Sandals', 'Formal Shoes', 'Flats'],
-  'Dresses & Sets': ['Dresses', 'Sarees', 'Kurta Sets'],
-  'Loungewear': ['Nightdress', 'Night suits', 'Lounge Pants', 'Lounge Shorts', 'Bath Robe'],
-  'Accessories': ['Dupatta', 'Ties', 'Waistcoat']
+// Article types based on actual CSV data, organized by gender
+const articleTypesByGender: Record<string, Record<string, string[]>> = {
+  men: {
+    'Topwear': ['Tshirts', 'Shirts', 'Kurtas', 'Sweatshirts', 'Jackets', 'Sweaters'],
+    'Bottomwear': ['Jeans', 'Shorts', 'Track Pants', 'Trousers', 'Tracksuits'],
+    'Footwear': ['Casual Shoes', 'Sports Shoes', 'Formal Shoes', 'Flip Flops', 'Sandals'],
+    'Loungewear': ['Night suits', 'Lounge Pants', 'Lounge Shorts'],
+    'Accessories': ['Ties', 'Waistcoat'],
+    'Outerwear': ['Rain Trousers']
+  },
+  women: {
+    'Topwear': ['Tshirts', 'Tops', 'Shirts', 'Kurtas', 'Kurtis', 'Sweatshirts', 'Jackets', 'Sweaters', 'Tunics', 'Shrug'],
+    'Bottomwear': ['Jeans', 'Shorts', 'Leggings', 'Trousers', 'Track Pants', 'Skirts', 'Capris', 'Patiala', 'Churidar'],
+    'Footwear': ['Heels', 'Flats', 'Casual Shoes', 'Sports Shoes', 'Flip Flops'],
+    'Dresses & Sets': ['Dresses', 'Sarees', 'Kurta Sets'],
+    'Loungewear': ['Nightdress', 'Night suits', 'Baby Dolls', 'Bath Robe'],
+    'Accessories': ['Dupatta', 'Stockings']
+  }
 }
 
 export const Step2AboutYou: React.FC = () => {
@@ -40,6 +49,22 @@ export const Step2AboutYou: React.FC = () => {
   const [customStyle, setCustomStyle] = useState('')
   const [customColor, setCustomColor] = useState('')
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+
+  // Get article types for the selected gender
+  const getArticleTypesForGender = (): Record<string, string[]> => {
+    if (!gender) return {}
+    return articleTypesByGender[gender] || {}
+  }
+
+  // Clear selected article types when gender changes
+  const handleGenderChange = (newGender: string) => {
+    setGender(newGender)
+    setSelectedArticleTypes([]) // Clear selections when gender changes
+    // Clear any gender-related errors
+    if (errors.gender) {
+      setErrors(prev => ({ ...prev, gender: '' }))
+    }
+  }
 
   const toggleArticleType = (articleType: string) => {
     setSelectedArticleTypes(prev => 
@@ -111,6 +136,8 @@ export const Step2AboutYou: React.FC = () => {
     }
   }
 
+  const currentArticleTypes = getArticleTypesForGender()
+
   return (
     <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
       <div className="text-center mb-8">
@@ -124,40 +151,48 @@ export const Step2AboutYou: React.FC = () => {
           label="Gender"
           options={genderOptions}
           value={gender}
-          onChange={(e) => setGender(e.target.value)}
+          onChange={(e) => handleGenderChange(e.target.value)}
           error={errors.gender}
         />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            What items are you looking for? (select all that apply)
-          </label>
-          
-          {Object.entries(articleTypeOptions).map(([category, items]) => (
-            <div key={category} className="mb-4">
-              <h4 className="text-sm font-medium text-gray-600 mb-2">{category}</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {items.map((articleType) => (
-                  <button
-                    key={articleType}
-                    onClick={() => toggleArticleType(articleType)}
-                    className={`px-3 py-2 rounded-lg text-sm transition-all duration-200 text-left ${
-                      selectedArticleTypes.includes(articleType)
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {articleType}
-                  </button>
-                ))}
+        {gender && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              What items are you looking for? (select all that apply)
+            </label>
+            
+            {Object.entries(currentArticleTypes).map(([category, items]) => (
+              <div key={category} className="mb-4">
+                <h4 className="text-sm font-medium text-gray-600 mb-2">{category}</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {items.map((articleType) => (
+                    <button
+                      key={articleType}
+                      onClick={() => toggleArticleType(articleType)}
+                      className={`px-3 py-2 rounded-lg text-sm transition-all duration-200 text-left ${
+                        selectedArticleTypes.includes(articleType)
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {articleType}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-          
-          {errors.articleTypes && (
-            <p className="mt-1 text-sm text-red-600">{errors.articleTypes}</p>
-          )}
-        </div>
+            ))}
+            
+            {errors.articleTypes && (
+              <p className="mt-1 text-sm text-red-600">{errors.articleTypes}</p>
+            )}
+          </div>
+        )}
+
+        {!gender && (
+          <div className="text-center py-8 text-gray-500">
+            <p>Please select your gender to see available item types</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
