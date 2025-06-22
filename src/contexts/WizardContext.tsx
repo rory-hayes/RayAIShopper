@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react'
-import { WizardState, UserContext } from '../types'
+import { WizardState, UserContext, RecommendationItem } from '../types'
 
 interface WizardContextType extends WizardState {
   nextStep: () => void

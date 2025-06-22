@@ -3,7 +3,7 @@ import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { Toast } from '../ui/Toast'
 import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X } from 'lucide-react'
-import { ClothingItem } from '../../types'
+import { ClothingItem, RecommendationItem } from '../../types'
 
 const mockItems: ClothingItem[] = [
   {
@@ -56,14 +56,14 @@ export const Step6OutfitRail: React.FC = () => {
   const { formData, updateFormData, nextStep, prevStep } = useWizard()
   
   // Convert real recommendations to ClothingItem format
-  const convertToClothingItems = (recommendations: any[]): ClothingItem[] => {
+  const convertToClothingItems = (recommendations: RecommendationItem[]): ClothingItem[] => {
     return recommendations.map(item => ({
       id: item.id,
       name: item.name,
-      description: item.description || `${item.article_type} in ${item.color}`,
+      description: item.description,
       image: item.image,
       price: `$${item.price}`,
-      location: item.storeLocation || 'A1-B2',
+      location: item.storeLocation,
       liked: false,
       disliked: false,
       addedToCart: false
@@ -76,6 +76,9 @@ export const Step6OutfitRail: React.FC = () => {
     : mockItems
 
   console.log('🔥 DEBUG Step6: formData.selectedItems:', formData.selectedItems)
+  console.log('🔥 DEBUG Step6: formData.selectedItems length:', formData.selectedItems?.length)
+  console.log('🔥 DEBUG Step6: formData.selectedItems type:', typeof formData.selectedItems)
+  console.log('🔥 DEBUG Step6: first item:', formData.selectedItems?.[0])
   console.log('🔥 DEBUG Step6: initialItems:', initialItems)
 
   const [items, setItems] = useState<ClothingItem[]>(initialItems)

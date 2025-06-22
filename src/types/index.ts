@@ -8,8 +8,23 @@ export interface WizardState {
     size: string
     inspirationImages: File[]
     selfieImage: File | null
-    selectedItems: string[]
+    selectedItems: RecommendationItem[]
   }
+}
+
+export interface RecommendationItem {
+  id: string
+  name: string
+  category: string
+  price: number
+  image: string
+  description: string
+  inStock: boolean
+  storeLocation: string
+  similarity_score?: number
+  article_type: string
+  color: string
+  usage?: string
 }
 
 export interface ClothingItem {
