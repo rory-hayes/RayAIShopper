@@ -41,26 +41,26 @@ class RecommendationService:
             session_id = request.session_id or str(uuid.uuid4())
             logger.info(f"Processing recommendation request for session {session_id}")
             
-            # Step 1: Analyze inspiration images if provided
-            inspiration_analysis = ""
-            if request.user_profile.inspiration_images:
-                inspiration_analysis = await self.openai_service.analyze_inspiration_images(
-                    request.user_profile.inspiration_images
-                )
+            # Step 1: Analyze user profile
+            user_profile = request.user_profile
             
-            # Step 2: Create enhanced search query using GPT-4o mini
+            # Step 2: Analyze inspiration images if provided
+            inspiration_analysis = None
+            if request.inspiration_images:
+                logger.info(f"Analyzing {len(request.inspiration_images)} inspiration images...")
+                inspiration_analysis = await self.openai_service.analyze_inspiration_images(request.inspiration_images)
+                logger.info(f"Image analysis result: {inspiration_analysis}")
+            
+            # Step 3: Create enhanced search query with image insights
             search_query = await self.openai_service.create_search_query_from_profile(
-                request.user_profile
+                user_profile=user_profile,
+                inspiration_analysis=inspiration_analysis
             )
             
-            # Add inspiration analysis to search query if available
-            if inspiration_analysis:
-                search_query = f"{search_query} {inspiration_analysis}"
-            
-            # Step 3: Generate query embedding
+            # Step 4: Generate query embedding
             query_embedding = await self.openai_service.get_query_embedding(search_query)
             
-            # Step 4: Perform vector similarity search
+            # Step 5: Perform vector similarity search
             exclude_ids = []
             if request.filters and request.filters.exclude_ids:
                 exclude_ids = request.filters.exclude_ids
@@ -71,20 +71,20 @@ class RecommendationService:
                 k=min(request.top_k * 2, settings.max_search_results),
                 exclude_ids=exclude_ids,
                 search_query=search_query,
-                gender_filter=request.user_profile.gender.value
+                gender_filter=user_profile.gender.value
             )
             
             # Extract products from search results
             candidate_products = [item for item, _ in search_results]
             
-            # Step 5: Apply additional filters if specified
+            # Step 6: Apply additional filters if specified
             if request.filters:
                 candidate_products = self._apply_filters(candidate_products, request.filters)
             
-            # Step 6: Enhance ranking with GPT-4o mini
+            # Step 7: Enhance ranking with GPT-4o mini
             if len(candidate_products) > request.top_k:
                 enhanced_products = await self.openai_service.enhance_recommendations(
-                    user_profile=request.user_profile,
+                    user_profile=user_profile,
                     recommendations=candidate_products,
                     inspiration_analysis=inspiration_analysis
                 )
@@ -93,16 +93,16 @@ class RecommendationService:
             else:
                 final_recommendations = candidate_products
             
-            # Step 7: Cache session data for future requests
+            # Step 8: Cache session data for future requests
             self.session_cache[session_id] = {
-                "user_profile": request.user_profile.dict(),
+                "user_profile": user_profile.dict(),
                 "query_embedding": query_embedding,
                 "search_query": search_query,
                 "inspiration_analysis": inspiration_analysis,
                 "exclude_ids": exclude_ids
             }
             
-            # Step 8: Create response
+            # Step 9: Create response
             response = RecommendationResponse(
                 recommendations=final_recommendations,
                 total_available=len(search_results),

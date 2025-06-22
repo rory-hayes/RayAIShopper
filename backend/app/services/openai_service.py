@@ -52,95 +52,184 @@ class OpenAIService:
             zero_embedding = [0.0] * 1536  # text-embedding-3-large dimension
             return [zero_embedding] * len(texts)
     
-    async def create_search_query_from_profile(self, user_profile: UserProfile) -> str:
+    async def create_search_query_from_profile(
+        self, 
+        user_profile: UserProfile,
+        inspiration_analysis: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
-        Create optimized search query from user profile using GPT-4o mini
-        Following cookbook's approach to enhance search queries
+        Create enhanced search query from user profile and image analysis
         """
-        system_prompt = """You are a fashion search expert. Create a detailed search query that will help find the perfect clothing items for the user.
-
-        Focus on:
-        - Style preferences and occasion
-        - Color preferences
-        - Gender and fit requirements
-        - Seasonal appropriateness
-        - Usage context (casual, formal, etc.)
+        # Base query from user profile
+        base_elements = [
+            user_profile.shopping_prompt,
+            user_profile.gender.value,
+            " ".join(user_profile.preferred_styles),
+            " ".join(user_profile.preferred_colors)
+        ]
         
-        Return only the search query text, no explanations."""
+        # Add image analysis insights if available
+        if inspiration_analysis:
+            # Add specific items identified in images
+            if inspiration_analysis.get("items"):
+                base_elements.extend(inspiration_analysis["items"])
+            
+            # Add colors from image analysis
+            if inspiration_analysis.get("colors"):
+                base_elements.extend(inspiration_analysis["colors"])
+            
+            # Add occasions/contexts
+            if inspiration_analysis.get("occasions"):
+                base_elements.extend(inspiration_analysis["occasions"])
+            
+            # Add style notes
+            if inspiration_analysis.get("style_notes"):
+                base_elements.append(inspiration_analysis["style_notes"])
         
-        user_prompt = f"""
-        User Profile:
-        - Shopping Intent: {user_profile.shopping_prompt}
-        - Gender: {user_profile.gender}
-        - Preferred Styles: {', '.join(user_profile.preferred_styles)}
-        - Preferred Colors: {', '.join(user_profile.preferred_colors)}
-        - Size: {user_profile.size}
-        - Age Range: {user_profile.age_range or 'Not specified'}
-        - Budget: {user_profile.budget_range or 'Not specified'}
-        - Body Type: {user_profile.body_type or 'Not specified'}
+        # Create comprehensive search query
+        search_query = " ".join(filter(None, base_elements))
         
-        Create a search query to find matching clothing items.
-        """
-        
+        # Enhance with GPT-4o mini for better semantic understanding
         try:
+            prompt = f"""Create an enhanced search query for finding clothing items based on this user request: "{search_query}"
+
+Focus on:
+- Specific clothing items and accessories
+- Style descriptors and aesthetics  
+- Colors and patterns
+- Occasions and contexts
+- Gender and fit preferences
+
+Return only the enhanced search terms, no extra text."""
+
             response = await self.client.chat.completions.create(
                 model=settings.gpt_model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "user", "content": prompt}
                 ],
                 max_tokens=150,
                 temperature=0.3
             )
             
-            search_query = response.choices[0].message.content.strip()
-            logger.info(f"Generated search query: {search_query}")
-            return search_query
+            enhanced_query = response.choices[0].message.content.strip()
+            logger.info(f"Enhanced search query: {enhanced_query}")
+            return enhanced_query
             
         except Exception as e:
-            logger.error(f"Error generating search query: {e}")
-            # Fallback to basic query
-            return f"{user_profile.shopping_prompt} {user_profile.gender} clothing"
+            logger.error(f"Error enhancing search query: {e}")
+            return search_query  # Fallback to basic query
     
-    async def analyze_inspiration_images(self, images: List[str]) -> str:
+    @openai_retry
+    async def analyze_inspiration_images(self, base64_images: List[str]) -> Dict[str, Any]:
         """
         Analyze inspiration images using GPT-4o mini vision capabilities
+        Returns style insights to enhance search query
         """
-        if not images:
-            return ""
-        
-        system_prompt = """Analyze the clothing/fashion images provided and describe the key style elements, colors, patterns, and overall aesthetic. Focus on details that would help in finding similar items."""
-        
-        # Prepare image messages (limit to first 2 images for cost efficiency)
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        for i, image_b64 in enumerate(images[:2]):
-            messages.append({
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": f"Image {i+1}:"},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
-                    }
-                ]
-            })
+        if not base64_images:
+            return {"items": [], "style_notes": "", "colors": [], "occasions": []}
         
         try:
+            # Prepare messages with images for GPT-4o mini
+            content = [
+                {
+                    "type": "text",
+                    "text": """Analyze these fashion inspiration images and provide detailed style insights for a shopping recommendation system.
+
+Please return a JSON response with:
+1. "items": List of specific clothing items/accessories you see (e.g., "black leather jacket", "white sneakers")
+2. "style_notes": Description of the overall aesthetic and style direction
+3. "colors": List of dominant colors
+4. "occasions": List of occasions/contexts this style would be appropriate for
+5. "gender": Inferred target gender ("men", "women", or "unisex")
+6. "season": Inferred season if applicable ("spring", "summer", "fall", "winter", or "year-round")
+
+Focus on actionable details that would help find similar clothing items."""
+                }
+            ]
+            
+            # Add each image to the content
+            for i, base64_image in enumerate(base64_images):
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                        "detail": "low"  # Use low detail for cost efficiency
+                    }
+                })
+            
             response = await self.client.chat.completions.create(
-                model=settings.gpt_model,
-                messages=messages,
-                max_tokens=200,
-                temperature=0.3
+                model="gpt-4o-mini",  # GPT-4o mini supports vision
+                messages=[
+                    {
+                        "role": "user",
+                        "content": content
+                    }
+                ],
+                max_tokens=1000,
+                temperature=0.1  # Low temperature for consistent analysis
             )
             
-            analysis = response.choices[0].message.content.strip()
-            logger.info("Successfully analyzed inspiration images")
-            return analysis
+            # Parse the response
+            analysis_text = response.choices[0].message.content
+            logger.info(f"Image analysis response: {analysis_text}")
+            
+            # Try to parse as JSON, fallback to structured parsing
+            try:
+                import json
+                analysis = json.loads(analysis_text)
+                
+                # Validate required fields
+                required_fields = ["items", "style_notes", "colors", "occasions"]
+                for field in required_fields:
+                    if field not in analysis:
+                        analysis[field] = []
+                
+                logger.info(f"Successfully analyzed {len(base64_images)} inspiration images")
+                return analysis
+                
+            except json.JSONDecodeError:
+                # Fallback: extract information from text response
+                logger.warning("Failed to parse JSON, using text extraction fallback")
+                return self._extract_style_info_from_text(analysis_text)
             
         except Exception as e:
             logger.error(f"Error analyzing inspiration images: {e}")
-            return ""
+            return {"items": [], "style_notes": "", "colors": [], "occasions": [], "error": str(e)}
+    
+    def _extract_style_info_from_text(self, text: str) -> Dict[str, Any]:
+        """
+        Fallback method to extract style information from text response
+        """
+        text_lower = text.lower()
+        
+        # Extract basic information using keyword matching
+        colors = []
+        common_colors = ["black", "white", "blue", "red", "green", "yellow", "brown", "gray", "pink", "purple", "orange"]
+        for color in common_colors:
+            if color in text_lower:
+                colors.append(color)
+        
+        occasions = []
+        common_occasions = ["casual", "formal", "business", "party", "wedding", "date", "work", "weekend"]
+        for occasion in common_occasions:
+            if occasion in text_lower:
+                occasions.append(occasion)
+        
+        # Extract items mentioned
+        items = []
+        common_items = ["shirt", "pants", "dress", "jacket", "shoes", "sneakers", "boots", "jeans", "sweater", "coat"]
+        for item in common_items:
+            if item in text_lower:
+                items.append(item)
+        
+        return {
+            "items": items,
+            "style_notes": text[:200] + "..." if len(text) > 200 else text,
+            "colors": colors,
+            "occasions": occasions,
+            "gender": "unisex",  # Default fallback
+            "season": "year-round"  # Default fallback
+        }
     
     async def enhance_recommendations(
         self, 
