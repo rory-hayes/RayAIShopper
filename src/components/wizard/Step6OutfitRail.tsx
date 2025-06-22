@@ -101,6 +101,7 @@ export const Step6OutfitRail: React.FC = () => {
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set())
   const [refreshingItems, setRefreshingItems] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(formData.sessionId || null)
 
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
@@ -110,9 +111,19 @@ export const Step6OutfitRail: React.FC = () => {
   const refreshItems = async (excludeIds: string[], count: number = 1) => {
     try {
       console.log('🔄 REFRESH: Requesting fresh items, excluding:', excludeIds)
+      console.log('🔄 REFRESH: Current session ID:', currentSessionId)
+      
+      if (!currentSessionId) {
+        console.error('❌ REFRESH: No session ID available')
+        setToast({
+          message: 'Please wait for recommendations to load first',
+          type: 'error'
+        })
+        return []
+      }
       
       const freshItems = await apiService.refreshRecommendations({
-        session_id: formData.sessionId || '', // Use session ID from form data
+        session_id: currentSessionId,
         exclude_ids: excludeIds,
         count
       })
@@ -352,7 +363,8 @@ export const Step6OutfitRail: React.FC = () => {
         console.log('✅ STEP6: Received recommendations:', response.recommendations.length)
         console.log('🔥 STEP6: Session ID from response:', response.session_id)
 
-        // Store session ID in form data for future API calls
+        // Store session ID in both form data and local state
+        setCurrentSessionId(response.session_id)
         updateFormData({ sessionId: response.session_id })
 
         // Sync with chat context
@@ -394,7 +406,7 @@ export const Step6OutfitRail: React.FC = () => {
     }
 
     fetchRecommendations()
-  }, [formData.shoppingPrompt, formData.preferredStyles, formData.preferredColors, chatContext])
+  }, [formData.shoppingPrompt, formData.preferredStyles, formData.preferredColors])
 
   if (showCart) {
     return (

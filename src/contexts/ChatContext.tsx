@@ -66,6 +66,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     setIsLoading(true)
     try {
+      console.log('🤖 CHAT: Sending message:', content)
+      console.log('🤖 CHAT: Current context:', currentContext)
+      console.log('🤖 CHAT: Session ID:', sessionId)
+      
       // Send to backend chat endpoint
       const response = await apiService.chat({
         message: content,
@@ -78,10 +82,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         session_id: sessionId || undefined
       })
 
-      // Add assistant response
+      console.log('🤖 CHAT: Received response:', response)
+
+      // Add assistant response - use 'message' field from backend
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: response.response,
+        content: response.message || "I received your message but couldn't generate a response.",
         timestamp: new Date().toISOString()
       }
       addMessage(assistantMessage)
@@ -89,6 +95,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Update session ID if provided
       if (response.session_id && !sessionId) {
         setSessionId(response.session_id)
+        console.log('🤖 CHAT: Updated session ID:', response.session_id)
       }
 
     } catch (error) {

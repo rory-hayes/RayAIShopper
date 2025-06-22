@@ -59,7 +59,7 @@ export interface ChatRequest {
 }
 
 export interface ChatResponse {
-  response: string
+  message: string
   context_updated: boolean
   suggestions?: string[]
   session_id?: string
