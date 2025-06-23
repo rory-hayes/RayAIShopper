@@ -10,6 +10,15 @@ export interface WizardState {
     selfieImage: File | null
     selectedItems: RecommendationItem[]
     sessionId?: string
+    // Context preservation fields
+    cachedRecommendations?: RecommendationItem[]
+    userInteractions?: {
+      liked: string[]
+      disliked: string[]
+      addedToCart: string[]
+    }
+    displayedItemIds?: string[]
+    hasLoadedRecommendations?: boolean
   }
 }
 

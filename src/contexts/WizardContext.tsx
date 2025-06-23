@@ -6,6 +6,7 @@ interface WizardContextType extends WizardState {
   prevStep: () => void
   updateFormData: (data: Partial<WizardState['formData']>) => void
   resetWizard: () => void
+  clearRecommendationCache: () => void
   getUserContext: () => UserContext
   getStepSummary: (step: number) => string
 }
@@ -21,7 +22,16 @@ const initialState: WizardState = {
     inspirationImages: [],
     selfieImage: null,
     selectedItems: [],
-    sessionId: undefined
+    sessionId: undefined,
+    // Context preservation fields
+    cachedRecommendations: undefined,
+    userInteractions: {
+      liked: [],
+      disliked: [],
+      addedToCart: []
+    },
+    displayedItemIds: undefined,
+    hasLoadedRecommendations: false
   }
 }
 
@@ -71,6 +81,20 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }
   
   const resetWizard = () => dispatch({ type: 'RESET_WIZARD' })
+
+  const clearRecommendationCache = () => {
+    console.log('🔄 WIZARD CONTEXT: Clearing recommendation cache')
+    updateFormData({
+      cachedRecommendations: undefined,
+      userInteractions: {
+        liked: [],
+        disliked: [],
+        addedToCart: []
+      },
+      displayedItemIds: undefined,
+      hasLoadedRecommendations: false
+    })
+  }
 
   const getStepName = (step: number): string => {
     const stepNames = [
@@ -203,6 +227,7 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       prevStep,
       updateFormData,
       resetWizard,
+      clearRecommendationCache,
       getUserContext,
       getStepSummary
     }}>

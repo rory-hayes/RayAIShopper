@@ -60,7 +60,7 @@ export const Step6OutfitRail: React.FC = () => {
   const chatContext = useChatContext()
   
   // Convert real recommendations to ClothingItem format
-  const convertToClothingItems = (recommendations: RecommendationItem[]): ClothingItem[] => {
+  const convertToClothingItems = (recommendations: RecommendationItem[], interactions?: { liked: string[]; disliked: string[]; addedToCart: string[] }): ClothingItem[] => {
     return recommendations.map(item => ({
       id: item.id,
       name: item.name,
@@ -68,35 +68,96 @@ export const Step6OutfitRail: React.FC = () => {
       image: item.image,
       price: `€${item.price}`,
       location: item.storeLocation,
-      liked: false,
-      disliked: false,
-      addedToCart: false
+      liked: interactions?.liked.includes(item.id) || false,
+      disliked: interactions?.disliked.includes(item.id) || false,
+      addedToCart: interactions?.addedToCart.includes(item.id) || false
     }))
   }
 
-  // Initialize with all recommendations from formData (up to 20 items)
-  const allRecommendations = formData.selectedItems && formData.selectedItems.length > 0 
-    ? convertToClothingItems(formData.selectedItems)
-    : mockClothingItems
+  // Determine data source: cached recommendations first, then selectedItems, then mock
+  const getInitialRecommendations = (): ClothingItem[] => {
+    console.log('🔄 CONTEXT: Determining data source for recommendations')
+    console.log('🔄 CONTEXT: cachedRecommendations:', formData.cachedRecommendations?.length || 0)
+    console.log('🔄 CONTEXT: selectedItems:', formData.selectedItems?.length || 0)
+    console.log('🔄 CONTEXT: hasLoadedRecommendations:', formData.hasLoadedRecommendations)
+
+    // First priority: Use cached recommendations with preserved interactions
+    if (formData.cachedRecommendations && formData.cachedRecommendations.length > 0) {
+      console.log('✅ CONTEXT: Using cached recommendations')
+      return convertToClothingItems(formData.cachedRecommendations, formData.userInteractions)
+    }
+    
+    // Second priority: Use selectedItems (fresh API data)
+    if (formData.selectedItems && formData.selectedItems.length > 0) {
+      console.log('✅ CONTEXT: Using selectedItems (fresh API data)')
+      return convertToClothingItems(formData.selectedItems, formData.userInteractions)
+    }
+    
+    // Fallback: Use mock data
+    console.log('⚠️ CONTEXT: Falling back to mock data')
+    return mockClothingItems
+  }
+
+  // Initialize with recommendations from appropriate source
+  const initialRecommendations = getInitialRecommendations()
 
   // State to track which items are currently displayed (5 at a time)
-  const [displayedItemIds, setDisplayedItemIds] = useState<string[]>([])
-  const [allItems, setAllItems] = useState<ClothingItem[]>(allRecommendations)
+  const [displayedItemIds, setDisplayedItemIds] = useState<string[]>(formData.displayedItemIds || [])
+  const [allItems, setAllItems] = useState<ClothingItem[]>(initialRecommendations)
   const [showTryOn, setShowTryOn] = useState<string | null>(null)
   const [showCart, setShowCart] = useState(false)
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set())
   const [refreshingItems, setRefreshingItems] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(formData.sessionId || null)
-  const [hasLoadedRecommendations, setHasLoadedRecommendations] = useState(false)
+  const [hasLoadedRecommendations, setHasLoadedRecommendations] = useState(formData.hasLoadedRecommendations || false)
 
-  // Initialize displayed items (first 5 from the pool)
+  // Initialize displayed items (first 5 from the pool) or restore from cache
   useEffect(() => {
     if (allItems.length > 0 && displayedItemIds.length === 0) {
       const initialIds = allItems.slice(0, 5).map(item => item.id)
       setDisplayedItemIds(initialIds)
     }
   }, [allItems, displayedItemIds.length])
+
+  // Save context to formData whenever state changes
+  useEffect(() => {
+    const saveContext = () => {
+      // Convert ClothingItems back to RecommendationItems for storage
+      const recommendationItems: RecommendationItem[] = allItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        category: 'Apparel',
+        price: parseInt(item.price.replace('€', '')),
+        image: item.image,
+        description: item.description,
+        inStock: true,
+        storeLocation: item.location,
+        article_type: 'Unknown',
+        color: 'Unknown',
+        usage: 'Unknown'
+      }))
+
+      // Extract user interactions
+      const userInteractions = {
+        liked: allItems.filter(item => item.liked).map(item => item.id),
+        disliked: allItems.filter(item => item.disliked).map(item => item.id),
+        addedToCart: allItems.filter(item => item.addedToCart).map(item => item.id)
+      }
+
+      // Update context with current state
+      updateFormData({
+        cachedRecommendations: recommendationItems,
+        userInteractions,
+        displayedItemIds,
+        hasLoadedRecommendations
+      })
+    }
+
+    // Debounce context saving to avoid excessive updates
+    const timeoutId = setTimeout(saveContext, 500)
+    return () => clearTimeout(timeoutId)
+  }, [allItems, displayedItemIds, hasLoadedRecommendations, updateFormData])
 
   // Get currently displayed items
   const displayedItems = allItems.filter(item => displayedItemIds.includes(item.id))
@@ -376,14 +437,21 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   useEffect(() => {
-    // Only fetch recommendations if we haven't already loaded them and have the necessary data
-    if (hasLoadedRecommendations || !formData.shoppingPrompt) {
+    // Skip fetching if we already have cached recommendations or have loaded before
+    if (hasLoadedRecommendations || (formData.cachedRecommendations && formData.cachedRecommendations.length > 0)) {
+      console.log('🔄 STEP6: Skipping API call - using cached data or already loaded')
+      return
+    }
+
+    // Skip if we don't have the necessary data to make recommendations
+    if (!formData.shoppingPrompt) {
+      console.log('🔄 STEP6: Skipping API call - no shopping prompt provided')
       return
     }
 
     const fetchRecommendations = async () => {
       try {
-        console.log('🔄 STEP6: Fetching recommendations...')
+        console.log('🔄 STEP6: Fetching fresh recommendations from API...')
         
         const userProfile = convertToUserProfile(formData)
         const response = await apiService.getRecommendations({
@@ -396,9 +464,6 @@ export const Step6OutfitRail: React.FC = () => {
 
         // Store session ID in both form data and local state
         setCurrentSessionId(response.session_id)
-        updateFormData({ sessionId: response.session_id })
-
-        // Mark as loaded to prevent re-fetching
         setHasLoadedRecommendations(true)
 
         // Set session ID in chat context
@@ -424,8 +489,15 @@ export const Step6OutfitRail: React.FC = () => {
         }))
 
         // Convert to ClothingItem format and set
-        const clothingItems = convertToClothingItems(recommendationItems)
+        const clothingItems = convertToClothingItems(recommendationItems, formData.userInteractions)
         setAllItems(clothingItems)
+
+        // Update form data with fresh recommendations and session
+        updateFormData({ 
+          sessionId: response.session_id,
+          cachedRecommendations: recommendationItems,
+          hasLoadedRecommendations: true
+        })
 
       } catch (error) {
         console.error('❌ STEP6: Failed to fetch recommendations:', error)
@@ -437,7 +509,7 @@ export const Step6OutfitRail: React.FC = () => {
     }
 
     fetchRecommendations()
-  }, []) // Empty dependency array - only run once when component mounts
+  }, [formData.shoppingPrompt, hasLoadedRecommendations])
 
   // More Options - rotate multiple items
   const handleMoreOptions = async () => {
