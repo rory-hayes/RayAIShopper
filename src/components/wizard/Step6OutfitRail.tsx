@@ -172,7 +172,10 @@ export const Step6OutfitRail: React.FC = () => {
   const storeId = urlParams.get('storeID')
 
   // Smart item replacement - rotate from available pool first, then API call if needed
-  const replaceItem = async (removedItemId: string) => {
+  const replaceItem = async (removedItemId: string): Promise<boolean> => {
+    console.log('🔄 REPLACE: Attempting to replace item:', removedItemId)
+    console.log('🔄 REPLACE: Available for rotation:', availableForRotation.length)
+    
     // First, try to replace from available pool
     if (availableForRotation.length > 0) {
       const newItem = availableForRotation[0]
@@ -191,7 +194,31 @@ export const Step6OutfitRail: React.FC = () => {
     
     // If no items available in pool, make API call for fresh items
     console.log('🔄 API: No items left in pool, fetching fresh recommendations...')
-    return await fetchFreshItem(removedItemId)
+    const apiSuccess = await fetchFreshItem(removedItemId)
+    
+    if (!apiSuccess) {
+      console.log('⚠️ REPLACE: Both rotation and API failed, checking for any non-displayed items')
+      
+      // Last resort: check if there are any non-disliked items not currently displayed
+      const allNonDislikedItems = allItems.filter(item => !item.disliked)
+      const nonDisplayedItems = allNonDislikedItems.filter(item => !displayedItemIds.includes(item.id))
+      
+      if (nonDisplayedItems.length > 0) {
+        const fallbackItem = nonDisplayedItems[0]
+        console.log('🔄 FALLBACK: Using non-displayed item:', fallbackItem.name)
+        
+        setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? fallbackItem.id : id))
+        
+        setToast({
+          message: `Showing ${fallbackItem.name} from your recommendations`,
+          type: 'info'
+        })
+        
+        return true
+      }
+    }
+    
+    return apiSuccess
   }
 
   // Fallback: Fetch fresh item from API when pool is exhausted
@@ -287,11 +314,23 @@ export const Step6OutfitRail: React.FC = () => {
       // Request fresh item to replace the disliked one
       const success = await replaceItem(itemId)
       
-      // After animation completes, actually mark item as disliked
+      // After animation completes, handle the result
       setTimeout(() => {
-        setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
-          item.id === itemId ? { ...item, disliked: true, liked: false, addedToCart: false } : item
-        ))
+        if (success) {
+          // Only mark as disliked if replacement was successful
+          setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
+            item.id === itemId ? { ...item, disliked: true, liked: false, addedToCart: false } : item
+          ))
+        } else {
+          // If replacement failed, just reset the item state (don't mark as disliked)
+          console.log('⚠️ DISLIKE: Replacement failed, keeping item visible')
+          setToast({
+            message: 'Unable to find replacement. Item will remain visible.',
+            type: 'info'
+          })
+        }
+        
+        // Clean up animation states regardless of success
         setRemovingItems((prev: Set<string>) => {
           const newSet = new Set(prev)
           newSet.delete(itemId)
