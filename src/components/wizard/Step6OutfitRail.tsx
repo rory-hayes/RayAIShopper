@@ -154,10 +154,13 @@ export const Step6OutfitRail: React.FC = () => {
       })
     }
 
-    // Debounce context saving to avoid excessive updates
-    const timeoutId = setTimeout(saveContext, 500)
-    return () => clearTimeout(timeoutId)
-  }, [allItems, displayedItemIds, hasLoadedRecommendations, updateFormData])
+    // Only save context if we have meaningful changes
+    if (allItems.length > 0) {
+      // Debounce context saving to avoid excessive updates
+      const timeoutId = setTimeout(saveContext, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [allItems, displayedItemIds, hasLoadedRecommendations])
 
   // Get currently displayed items
   const displayedItems = allItems.filter(item => displayedItemIds.includes(item.id))
@@ -450,7 +453,26 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const cartItems = allItems.filter((item: ClothingItem) => item.addedToCart)
+  
+  // Filter out disliked items from display, but ensure we maintain target count
   const visibleItems = displayedItems.filter(item => !item.disliked)
+  
+  // If we have fewer than 5 visible items due to dislikes, try to fill from available items
+  useEffect(() => {
+    const targetDisplayCount = 5
+    const currentVisibleCount = visibleItems.length
+    
+    if (currentVisibleCount < targetDisplayCount && availableForRotation.length > 0) {
+      const itemsNeeded = targetDisplayCount - currentVisibleCount
+      const itemsToAdd = availableForRotation.slice(0, itemsNeeded)
+      
+      if (itemsToAdd.length > 0) {
+        console.log(`🔄 AUTO-FILL: Adding ${itemsToAdd.length} items to maintain display count`)
+        setDisplayedItemIds(prev => [...prev, ...itemsToAdd.map(item => item.id)])
+      }
+    }
+  }, [visibleItems.length, availableForRotation.length])
+  
   const tryOnItem = allItems.find((item: ClothingItem) => item.id === showTryOn)
 
   // Generate explanation based on user preferences
