@@ -149,7 +149,7 @@ export const Step7Checkout: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
-                      <span className="font-medium text-gray-900">${item.price}</span>
+                      <span className="font-medium text-gray-900">€{item.price}</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                     <div className="flex items-center text-sm text-blue-600">
@@ -205,7 +205,7 @@ export const Step7Checkout: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-medium text-gray-900">{item.name}</h3>
-                      <span className="font-medium text-gray-900">${item.price}</span>
+                      <span className="font-medium text-gray-900">€{item.price}</span>
                     </div>
                     <p className="text-sm text-gray-600">{item.description}</p>
                     <p className="text-sm text-gray-500">Category: {item.category}</p>
@@ -219,16 +219,16 @@ export const Step7Checkout: React.FC = () => {
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900">${total}</span>
+              <span className="text-gray-900">€{total}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax</span>
-              <span className="text-gray-900">${tax}</span>
+              <span className="text-gray-900">€{tax}</span>
             </div>
             <div className="border-t border-gray-200 pt-3">
               <div className="flex justify-between">
                 <span className="font-medium text-gray-900">Total</span>
-                <span className="text-xl font-medium text-gray-900">${finalTotal}</span>
+                <span className="text-xl font-medium text-gray-900">€{finalTotal}</span>
               </div>
             </div>
           </div>

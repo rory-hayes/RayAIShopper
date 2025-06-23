@@ -8,13 +8,13 @@ import { ClothingItem, RecommendationItem } from '../../types'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
 import { convertToUserProfile, convertFromBase64, apiService } from '../../services/api'
 
-const mockItems: ClothingItem[] = [
+const mockClothingItems: ClothingItem[] = [
   {
     id: '1',
     name: 'Silk Midi Dress',
-    description: 'Elegant flowing dress perfect for dinner parties',
+    price: '€189',
+    description: 'Elegant silk dress perfect for formal occasions',
     image: 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400',
-    price: '$189',
     location: 'Level 2, Women\'s Formal',
     liked: false,
     disliked: false,
@@ -23,9 +23,9 @@ const mockItems: ClothingItem[] = [
   {
     id: '2',
     name: 'Tailored Blazer',
-    description: 'Classic navy blazer for sophisticated looks',
-    image: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=400',
-    price: '$249',
+    price: '€249',
+    description: 'Professional blazer for business attire',
+    image: 'https://images.pexels.com/photos/2343465/pexels-photo-2343465.jpeg?auto=compress&cs=tinysrgb&w=400',
     location: 'Level 2, Women\'s Business',
     liked: false,
     disliked: false,
@@ -34,9 +34,9 @@ const mockItems: ClothingItem[] = [
   {
     id: '3',
     name: 'Designer Heels',
-    description: 'Comfortable yet stylish for all-day wear',
+    price: '€159',
+    description: 'Comfortable heels for any occasion',
     image: 'https://images.pexels.com/photos/336372/pexels-photo-336372.jpeg?auto=compress&cs=tinysrgb&w=400',
-    price: '$159',
     location: 'Level 1, Shoes',
     liked: false,
     disliked: false,
@@ -45,9 +45,9 @@ const mockItems: ClothingItem[] = [
   {
     id: '4',
     name: 'Statement Necklace',
-    description: 'Gold-plated accessory to complete your look',
+    price: '€89',
+    description: 'Bold necklace to complete your look',
     image: 'https://images.pexels.com/photos/1191531/pexels-photo-1191531.jpeg?auto=compress&cs=tinysrgb&w=400',
-    price: '$89',
     location: 'Level 1, Accessories',
     liked: false,
     disliked: false,
@@ -66,7 +66,7 @@ export const Step6OutfitRail: React.FC = () => {
       name: item.name,
       description: item.description,
       image: item.image,
-      price: `$${item.price}`,
+      price: `€${item.price}`,
       location: item.storeLocation,
       liked: false,
       disliked: false,
@@ -77,7 +77,7 @@ export const Step6OutfitRail: React.FC = () => {
   // Initialize with all recommendations from formData (up to 20 items)
   const allRecommendations = formData.selectedItems && formData.selectedItems.length > 0 
     ? convertToClothingItems(formData.selectedItems)
-    : mockItems
+    : mockClothingItems
 
   // State to track which items are currently displayed (5 at a time)
   const [displayedItemIds, setDisplayedItemIds] = useState<string[]>([])
@@ -169,7 +169,7 @@ export const Step6OutfitRail: React.FC = () => {
         name: freshItems[0].name,
         description: `${freshItems[0].article_type} in ${freshItems[0].color}`,
         image: freshItems[0].image_url,
-        price: '$75',
+        price: '€75',
         location: freshItems[0].store_location || 'Available in store',
         liked: false,
         disliked: false,
@@ -331,7 +331,7 @@ export const Step6OutfitRail: React.FC = () => {
       id: item.id,
       name: item.name,
       category: 'Apparel', // Default category
-      price: parseInt(item.price.replace('$', '')), // Convert price string back to number
+      price: parseInt(item.price.replace('€', '')), // Convert price string back to number
       image: item.image,
       description: item.description,
       inStock: true,
@@ -578,7 +578,7 @@ export const Step6OutfitRail: React.FC = () => {
               <span>View Cart ({cartItems.length})</span>
             </div>
             <span className="font-medium">
-              ${cartItems.reduce((sum: number, item: ClothingItem) => sum + parseInt(item.price.replace('$', '')), 0)}
+              €{cartItems.reduce((sum: number, item: ClothingItem) => sum + parseInt(item.price.replace('€', '')), 0)}
             </span>
           </button>
         </div>

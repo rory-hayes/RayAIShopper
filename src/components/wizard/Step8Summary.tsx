@@ -4,10 +4,10 @@ import { Button } from '../ui/Button'
 import { MapPin, ShoppingBag } from 'lucide-react'
 
 const mockItems = [
-  { id: '1', name: 'Silk Midi Dress', price: '$189', location: 'Level 2, Women\'s Formal' },
-  { id: '2', name: 'Tailored Blazer', price: '$249', location: 'Level 2, Women\'s Business' },
-  { id: '3', name: 'Designer Heels', price: '$159', location: 'Level 1, Shoes' },
-  { id: '4', name: 'Statement Necklace', price: '$89', location: 'Level 1, Accessories' }
+  { id: '1', name: 'Silk Midi Dress', price: '€189', location: 'Level 2, Women\'s Formal' },
+  { id: '2', name: 'Tailored Blazer', price: '€249', location: 'Level 2, Women\'s Business' },
+  { id: '3', name: 'Designer Heels', price: '€159', location: 'Level 1, Shoes' },
+  { id: '4', name: 'Statement Necklace', price: '€89', location: 'Level 1, Accessories' }
 ]
 
 export const Step8Summary: React.FC = () => {
@@ -17,8 +17,10 @@ export const Step8Summary: React.FC = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const storeId = urlParams.get('storeID')
   
-  const selectedItems = mockItems.filter(item => formData.selectedItems.includes(item.id))
-  const total = selectedItems.reduce((sum, item) => sum + parseInt(item.price.replace('$', '')), 0)
+  const selectedItems = mockItems.filter(item => 
+    formData.selectedItems.some(selectedItem => selectedItem.id === item.id)
+  )
+  const total = selectedItems.reduce((sum, item) => sum + parseInt(item.price.replace('€', '')), 0)
 
   const handleCheckout = () => {
     // In a real app, this would handle checkout
@@ -61,7 +63,7 @@ export const Step8Summary: React.FC = () => {
         <div className="bg-gray-50 rounded-xl p-4 mb-6">
           <div className="flex justify-between items-center">
             <span className="font-medium text-gray-900">Total</span>
-            <span className="text-xl font-medium text-gray-900">${total}</span>
+            <span className="text-xl font-medium text-gray-900">€{total}</span>
           </div>
         </div>
       )}
