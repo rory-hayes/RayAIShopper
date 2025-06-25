@@ -66,7 +66,8 @@ class VectorSearchService:
                     
                     self.dimension = self.index.d
                     self.fallback_mode = False
-                    logger.info(f"✅ MODE A: Loaded FAISS index with {self.index.ntotal} vectors, dimension {self.dimension}")
+                    logger.info(f"MODE A: Loaded FAISS index with {self.index.ntotal} vectors, dimension {self.dimension}")
+                    self.mode = "A"
                     return True
             
             # Initialize with CSV data and prepare for embedding generation
@@ -75,25 +76,27 @@ class VectorSearchService:
             
             if success and self.products_data:
                 # Try to generate embeddings immediately for Mode A/B
-                logger.info("🚀 Attempting immediate embedding generation for Mode A/B...")
+                logger.info("Attempting immediate embedding generation for Mode A/B...")
                 try:
                     # Generate embeddings for a subset first to test
                     await self._generate_embeddings_immediate()
                     
                     if self.products_with_embeddings and len(self.products_with_embeddings) > 0:
-                        logger.info(f"✅ MODE B: Embedding similarity search enabled with {len(self.products_with_embeddings)} products")
+                        logger.info(f"MODE B: Embedding similarity search enabled with {len(self.products_with_embeddings)} products")
+                        self.mode = "B"
                         self.fallback_mode = False
                         return True
                     
                 except Exception as e:
-                    logger.warning(f"⚠️ Immediate embedding generation failed: {e}")
+                    logger.warning(f"Immediate embedding generation failed: {e}")
                 
                 # Fall back to background generation + keyword search
-                logger.info("🔄 Starting background embedding generation...")
+                logger.info("Starting background embedding generation...")
                 import asyncio
                 asyncio.create_task(self._generate_embeddings_background())
                 
-                logger.info("✅ MODE C: Keyword similarity search enabled as fallback")
+                logger.info("MODE C: Keyword similarity search enabled as fallback")
+                self.mode = "C"
                 return True
             
             return success
@@ -612,102 +615,31 @@ class VectorSearchService:
             
             # Switch to embedding mode once complete
             if self.products_with_embeddings:
+                logger.info(f"Background embedding generation complete! Switched to embedding mode with {len(self.products_with_embeddings)} products")
+                
+                # Switch to embedding mode
+                self.mode = "B"
                 self.fallback_mode = False
-                logger.info(f"✅ Background embedding generation complete! Switched to embedding mode with {len(self.products_with_embeddings)} products")
-            else:
-                logger.warning("Background embedding generation failed, staying in keyword mode")
                 
         except Exception as e:
             logger.error(f"Background embedding generation failed: {e}")
-            # Stay in keyword mode 
-
+            # Continue with keyword search
+        
     async def _generate_embeddings_immediate(self):
-        """
-        Generate embeddings immediately for a subset of products to enable Mode B
-        Uses a smaller batch to avoid timeouts while still providing embedding search
-        """
+        """Generate embeddings immediately for a subset of products"""
         try:
-            # Import OpenAI service here to avoid circular imports
-            from app.services.openai_service import OpenAIService
-            if not self.openai_service:
-                self.openai_service = OpenAIService()
-            
-            # Start with a smaller subset for immediate availability
-            subset_size = min(100, len(self.products_data))  # Start with 100 products
+            # Take a subset for immediate generation (first 50 products)
+            subset_size = min(50, len(self.products_data))
             subset_products = self.products_data[:subset_size]
             
-            logger.info(f"Generating embeddings for {subset_size} products (immediate mode)...")
+            # Generate embeddings for subset
+            self.products_with_embeddings = await self.embeddings_generator.generate_embeddings_for_products(
+                subset_products,
+                description_column=None  # Use rich descriptions
+            )
             
-            # Create product descriptions for embedding
-            product_descriptions = []
-            for product in subset_products:
-                description = self._create_product_description(product)
-                product_descriptions.append(description)
-            
-            # Generate embeddings in one batch (small enough to avoid timeout)
-            try:
-                embeddings = await self.openai_service.get_embeddings_batch(product_descriptions)
-                
-                # Combine products with their embeddings
-                self.products_with_embeddings = []
-                for product, embedding in zip(subset_products, embeddings):
-                    product_with_embedding = product.copy()
-                    product_with_embedding['embedding'] = embedding
-                    self.products_with_embeddings.append(product_with_embedding)
-                
-                logger.info(f"✅ Generated embeddings for {len(self.products_with_embeddings)} products (immediate mode)")
-                
-                # Continue generating for remaining products in background
-                if len(self.products_data) > subset_size:
-                    remaining_products = self.products_data[subset_size:]
-                    import asyncio
-                    asyncio.create_task(self._generate_remaining_embeddings(remaining_products))
-                
-            except Exception as e:
-                logger.error(f"Error in immediate embedding generation: {e}")
-                self.products_with_embeddings = []
-                # Don't raise the error - let it fall back to keyword search
-                
-        except Exception as e:
-            logger.error(f"Error in immediate embedding setup: {e}")
-            self.products_with_embeddings = []
-            # Don't raise the error - let it fall back to keyword search
-    
-    async def _generate_remaining_embeddings(self, remaining_products: List[Dict]):
-        """
-        Generate embeddings for remaining products in background
-        """
-        try:
-            logger.info(f"🔄 Generating embeddings for remaining {len(remaining_products)} products...")
-            
-            # Create descriptions
-            product_descriptions = []
-            for product in remaining_products:
-                description = self._create_product_description(product)
-                product_descriptions.append(description)
-            
-            # Generate embeddings in batches
-            batch_size = 50
-            for i in range(0, len(product_descriptions), batch_size):
-                batch = product_descriptions[i:i + batch_size]
-                batch_products = remaining_products[i:i + batch_size]
-                
-                try:
-                    batch_embeddings = await self.openai_service.get_embeddings_batch(batch)
-                    
-                    # Add to existing embeddings
-                    for product, embedding in zip(batch_products, batch_embeddings):
-                        product_with_embedding = product.copy()
-                        product_with_embedding['embedding'] = embedding
-                        self.products_with_embeddings.append(product_with_embedding)
-                    
-                    logger.info(f"✅ Generated embeddings batch {i//batch_size + 1}, total: {len(self.products_with_embeddings)}")
-                    
-                except Exception as e:
-                    logger.error(f"Error generating embeddings batch {i//batch_size + 1}: {e}")
-                    continue
-            
-            logger.info(f"🎉 Completed all embeddings! Total: {len(self.products_with_embeddings)} products")
+            logger.info(f"Generated embeddings for {len(self.products_with_embeddings)} products (immediate mode)")
             
         except Exception as e:
-            logger.error(f"Error generating remaining embeddings: {e}") 
+            logger.error(f"Immediate embedding generation failed: {e}")
+            self.products_with_embeddings = [] 

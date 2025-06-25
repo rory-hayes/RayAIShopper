@@ -70,7 +70,7 @@ async def get_recommendations(request: RecommendationRequest, recommendation_ser
     Get personalized outfit recommendations
     
     This endpoint implements the full RAG pipeline:
-    1. Analyzes user profile and inspiration images with GPT-4o mini
+    1. Analyses user profile and inspiration images with GPT-4o mini
     2. Creates enhanced search query
     3. Performs vector similarity search on product catalog
     4. Enhances ranking with GPT-4o mini

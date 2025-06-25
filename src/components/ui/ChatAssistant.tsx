@@ -26,7 +26,7 @@ export const ChatAssistant: React.FC = () => {
   // Sync with wizard data when component mounts or when we reach Step 6
   useEffect(() => {
     if (shouldShowChat && !hasInitialized) {
-      console.log('🤖 CHAT: Initializing with full wizard context at Step 6')
+      console.log('CHAT: Initializing with full wizard context at Step 6')
       syncWithWizard({ formData, currentStep })
       setShowNotification(true) // Show notification badge
       setHasInitialized(true)
@@ -47,16 +47,16 @@ export const ChatAssistant: React.FC = () => {
     const hasSelfie = !!formData.selfieImage
     const recommendationCount = formData.selectedItems?.length || 0
 
-    let summary = `🎉 Welcome! I'm Ray, your personal fashion stylist. Let me break down what I've curated for you:\n\n`
+    let summary = `Welcome! I'm Ray, your personal fashion stylist. Let me break down what I've curated for you:\n\n`
 
     // Shopping goal
     if (prompt) {
-      summary += `🎯 **Your Goal:** "${prompt}"\n`
+      summary += `**Your Goal:** "${prompt}"\n`
     }
 
     // Style analysis
     if (styles.length > 0) {
-      summary += `✨ **Your Style DNA:** ${styles.join(', ')}\n`
+      summary += `**Your Style DNA:** ${styles.join(', ')}\n`
       
       // Add style insights
       if (styles.includes('Minimalist')) {
@@ -75,7 +75,7 @@ export const ChatAssistant: React.FC = () => {
 
     // Color analysis
     if (colors.length > 0) {
-      summary += `🎨 **Your Color Palette:** ${colors.join(', ')}\n`
+      summary += `**Your Color Palette:** ${colors.join(', ')}\n`
       
       // Add color matching insights
       if (colors.includes('Black')) {
@@ -94,15 +94,15 @@ export const ChatAssistant: React.FC = () => {
 
     // Inspiration and personalization
     if (hasInspiration) {
-      summary += `📸 **Visual Inspiration:** I've analyzed your inspiration images to understand your aesthetic vision.\n`
+      summary += `**Visual Inspiration:** I've analyzed your inspiration images to understand your aesthetic vision.\n`
     }
     if (hasSelfie) {
-      summary += `👤 **Personal Touch:** With your selfie, I can show you virtual try-ons for the perfect fit visualization.\n`
+      summary += `**Personal Touch:** With your selfie, I can show you virtual try-ons for the perfect fit visualization.\n`
     }
 
     // Recommendations summary
     if (recommendationCount > 0) {
-      summary += `\n🛍️ **Your Curated Collection:** ${recommendationCount} handpicked pieces that work together beautifully.\n\n`
+      summary += `\n**Your Curated Collection:** ${recommendationCount} handpicked pieces that work together beautifully.\n\n`
       
       summary += `**Why These Recommendations?**\n`
       summary += `• Each piece aligns with your ${styles.join(' and ')} aesthetic\n`
@@ -113,7 +113,7 @@ export const ChatAssistant: React.FC = () => {
       summary += `• High-quality pieces that offer versatility and longevity\n\n`
     }
 
-    summary += `💬 **I'm here to help with:**\n`
+    summary += `**I'm here to help with:**\n`
     summary += `• Color combinations and matching\n`
     summary += `• Styling tips and outfit ideas\n`
     summary += `• Accessory recommendations\n`
@@ -121,7 +121,7 @@ export const ChatAssistant: React.FC = () => {
     summary += `• Mix-and-match suggestions\n`
     summary += `• Fashion trends and timeless pieces\n\n`
 
-    summary += `What would you like to know about your recommendations? 😊`
+    summary += `What would you like to know about your recommendations?`
 
     return summary
   }

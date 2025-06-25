@@ -1,216 +1,184 @@
-# Ray Fashion Assistant Wizard
+## Ray AI Shopper
 
-A modern, responsive multi-step wizard UI for Ray, a personal AI shopping assistant designed for department store shoppers. This application provides a sleek, mobile-first experience for users to discover and try on clothing items.
+An AI-powered fashion recommendation system with virtual try-on capabilities, built with React frontend and FastAPI backend.
 
-## Features Implemented
+### Design & UI
 
-### 🎨 Design & UI
-- **Modern, minimalist design** inspired by Apple, OpenAI, and luxury fashion brands
-- **Mobile-first responsive design** with breakpoints for tablet and desktop
-- **Smooth animations and transitions** between steps with fade-in effects
-- **Premium color system** with elegant neutrals and accent colors
-- **Custom styled components** with hover states and micro-interactions
+The application features a clean, modern interface with:
+- **8-step wizard flow**: Welcome → Preferences → Image Upload → Selfie → AI Processing → Recommendations → Checkout → Summary
+- **Responsive design**: Mobile-first approach with Tailwind CSS
+- **Smooth animations**: Page transitions, loading states, and micro-interactions
+- **Professional typography**: Clean hierarchy with proper spacing and readability
 
-### 📱 Wizard Flow (8 Steps)
+### Key Features
 
-#### Step 1: Welcome
-- Clean introduction to Ray
-- Large text area for shopping prompt input
-- Validates input before allowing continuation
+**Smart Recommendations**
+- AI-powered outfit curation based on user preferences
+- Style analysis from inspiration images
+- Personalized recommendations using OpenAI embeddings
+- Context-aware suggestions for different occasions
 
-#### Step 2: About You
-- Gender selection dropdown
-- Size input field
-- Multi-select style preferences with toggle buttons
-- Form validation ensures all fields are completed
+**Virtual Try-On**
+- DALL-E powered virtual try-on generation
+- Upload selfie for personalized visualization
+- Enhanced prompts using user style preferences
+- Download and share generated images
 
-#### Step 3: Upload Inspiration
-- Drag-and-drop file upload area
-- Multiple image upload support
-- Image preview with removal functionality
-- Mobile camera integration
+**Interactive Shopping Experience**
+- Like/dislike system with smart item rotation
+- Real-time cart management
+- Store location mapping for in-person shopping
+- QR code integration for store-specific experiences
 
-#### Step 4: Upload Selfie
-- Single image upload for virtual try-on
-- Camera capture support for mobile devices
-- Optional step with skip functionality
-- Image preview with removal option
+**Intelligent Chat Assistant**
+- Context-aware fashion advice
+- Style guidance and color matching tips
+- Personalized recommendations based on user journey
+- Integration with user preferences and selections
 
-#### Step 5: AI Working
-- Animated loading screen with sparkle icons
-- Simulated 3-second processing time
-- Bouncing dots animation
-- Automatic progression to next step
+### Technical Architecture
 
-#### Step 6: Outfit Rail Results
-- Product cards with images, names, and descriptions
-- Interactive buttons for like/dislike feedback
-- "Try On" functionality with modal view
-- Add to cart functionality
-- Mock data for 4 clothing items
+**Frontend (React + TypeScript)**
+- Vite build system for fast development
+- Tailwind CSS for styling
+- Context-based state management
+- Type-safe API integration
 
-#### Step 7: Virtual Try-On (Modal)
-- Side-by-side comparison view
-- User's selfie on left, AI-generated try-on on right
-- Placeholder for AI-generated content
-- Back to rail functionality
+**Backend (FastAPI + Python)**
+- OpenAI API integration for embeddings and chat
+- Vector similarity search with FAISS
+- Lightweight fallback mode for deployment constraints
+- RESTful API design with automatic documentation
 
-#### Step 8: Summary
-- Shopping list with selected items
-- Price calculation and total
-- Store location info when accessed via QR code (storeID parameter)
-- Checkout/Find in Store buttons
-- New session reset functionality
+**AI/ML Components**
+- Text embeddings for semantic product search
+- Image analysis for style preference extraction
+- Natural language processing for chat responses
+- Recommendation algorithms with user feedback loops
 
-### 🔧 Technical Implementation
+### Interactive Features
 
-#### State Management
-```typescript
-// Context-based state management using useReducer
-interface WizardState {
-  currentStep: number
-  formData: {
-    shoppingPrompt: string
-    gender: string
-    preferredStyles: string[]
-    size: string
-    inspirationImages: File[]
-    selfieImage: File | null
-    selectedItems: string[]
-  }
-}
+**Wizard Flow**
+- Progressive data collection across 8 steps
+- Context preservation between steps
+- Smart defaults and validation
+- Seamless navigation with progress tracking
+
+**Product Interaction**
+- Swipe-like interface for product discovery
+- Smart replacement algorithms
+- Real-time preference learning
+- Contextual product information
+
+**Virtual Try-On Integration**
+- Seamless modal experience
+- Progress indicators for generation
+- Multiple sharing options
+- Fallback handling for errors
+
+**Chat Integration**
+- Contextual assistance throughout the journey
+- Fashion expertise and styling advice
+- Integration with user data and preferences
+- Real-time response generation
+
+### Data Flow
+
+**User Input Processing**
+1. Collect preferences through wizard steps
+2. Process inspiration images for style analysis
+3. Generate user profile for recommendation engine
+4. Maintain context throughout the session
+
+**Recommendation Generation**
+1. Convert user preferences to embeddings
+2. Perform similarity search against product database
+3. Apply filtering based on user criteria
+4. Return ranked recommendations with metadata
+
+**Context Management**
+1. Preserve user interactions (likes, dislikes, cart)
+2. Maintain session state across page refreshes
+3. Sync data between wizard and chat contexts
+4. Handle fallback scenarios gracefully
+
+### Styling & Animations
+
+**Design System**
+- Consistent color palette with gray-based neutrals
+- Typography scale with proper hierarchy
+- Spacing system using Tailwind's scale
+- Interactive states with hover and focus effects
+
+**Animation Strategy**
+- Page transitions with fade and slide effects
+- Loading states with skeleton screens and spinners
+- Micro-interactions for user feedback
+- Progressive disclosure for complex interfaces
+
+**Responsive Behavior**
+- Mobile-first design approach
+- Flexible layouts that adapt to screen sizes
+- Touch-friendly interactive elements
+- Optimized for various device orientations
+
+### State Management
+
+**Wizard Context**
+- Centralized form data management
+- Step navigation and validation
+- Recommendation caching and user interactions
+- Session persistence and recovery
+
+**Chat Context**
+- Message history and threading
+- Context synchronization with wizard data
+- Real-time typing indicators
+- Error handling and retry logic
+
+### Future Integration Points
+
+**Enhanced AI Features**
+- Advanced style analysis from multiple images
+- Seasonal trend integration
+- Size and fit recommendations
+- Color palette analysis and matching
+
+**E-commerce Integration**
+- Real inventory management
+- Dynamic pricing and promotions
+- Order processing and tracking
+- Customer account management
+
+**Social Features**
+- Style sharing and inspiration boards
+- Community recommendations
+- Influencer collaborations
+- Social media integration
+
+### Development Setup
+
+**Prerequisites**
+- Node.js 18+ for frontend
+- Python 3.8+ for backend
+- OpenAI API key for AI features
+
+**Frontend Setup**
+```bash
+npm install
+npm run dev
 ```
 
-#### Component Architecture
-- **Modular design** with separate components for each step
-- **Reusable UI components** (Button, Input, Select, Textarea)
-- **Context provider** for global state management
-- **Type safety** with TypeScript interfaces
-
-#### File Upload Handling
-```typescript
-// Image upload with preview functionality
-const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-  const files = Array.from(event.target.files || [])
-  setImages(prev => [...prev, ...files])
-}
+**Backend Setup**
+```bash
+cd backend
+pip install -r requirements.txt
+python start.py
 ```
 
-#### Navigation System
-- Forward/backward navigation with state persistence
-- Progress bar showing completion percentage
-- Form validation before step progression
-- URL parameter detection for QR code integration
+**Environment Configuration**
+- Copy `.env.example` to `.env`
+- Add your OpenAI API key
+- Configure any additional settings
 
-### 🎯 Interactive Features
-
-#### Floating Chat Button
-- Fixed position chat interface
-- Expandable chat window
-- Message input with send functionality
-- Online status indicator
-- Smooth animations for open/close
-
-#### Image Management
-- Multiple file upload support
-- Image preview with thumbnails
-- Remove functionality for uploaded images
-- Mobile camera integration
-- File type validation
-
-#### Product Interaction
-- Like/dislike buttons with visual feedback
-- Add to cart toggle functionality
-- Virtual try-on modal overlay
-- Real-time cart updates
-
-### 📱 Responsive Design
-
-#### Mobile (< 768px)
-- Full-width layouts
-- Touch-optimized button sizes
-- Camera integration for selfies
-- Optimized image upload
-
-#### Tablet (768px - 1024px)
-- Adjusted spacing and sizing
-- Maintained mobile-like experience
-- Enhanced touch targets
-
-#### Desktop (> 1024px)
-- Centered content with max-width constraints
-- Enhanced hover states
-- Optimized for mouse interaction
-
-### 🎨 Styling & Animations
-
-#### Custom CSS Animations
-```css
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-```
-
-#### Interactive States
-- Button hover effects with scale transforms
-- Form focus states with subtle shadows
-- Loading animations with rotating elements
-- Smooth transitions between steps
-
-### 🔮 Future Integration Points
-
-The codebase is structured to easily integrate:
-- **GPT-4o-mini** for chat functionality and recommendations
-- **DALL·E** for virtual try-on generation
-- **Backend APIs** for product data and user management
-- **Payment processing** for checkout functionality
-- **Store inventory systems** for real-time availability
-
-### 📦 Component Structure
-
-```
-src/
-├── components/
-│   ├── ui/
-│   │   ├── Button.tsx
-│   │   ├── Input.tsx
-│   │   ├── Select.tsx
-│   │   ├── Textarea.tsx
-│   │   └── ChatButton.tsx
-│   └── wizard/
-│       ├── Step1Welcome.tsx
-│       ├── Step2AboutYou.tsx
-│       ├── Step3UploadInspiration.tsx
-│       ├── Step4UploadSelfie.tsx
-│       ├── Step5AIWorking.tsx
-│       ├── Step6OutfitRail.tsx
-│       ├── Step8Summary.tsx
-│       └── WizardContainer.tsx
-├── contexts/
-│   └── WizardContext.tsx
-├── types/
-│   └── index.ts
-└── App.tsx
-```
-
-## Getting Started
-
-1. Install dependencies: `npm install`
-2. Start development server: `npm run dev`
-3. Open in browser and begin the Ray shopping experience
-
-## QR Code Integration
-
-The app detects a `storeID` URL parameter for in-store usage:
-- `?storeID=123` enables store-specific features
-- Shows item locations within the store
-- Provides "Find in Store" instead of checkout
-
-This wizard provides a solid foundation for a production-ready fashion assistant experience, with clean code architecture that can be easily extended with AI capabilities and backend integration.# Frontend update Sat Jun 21 19:54:30 IST 2025
+The application is designed to work in both full-featured mode (with OpenAI API) and fallback mode (with mock data) for development and deployment flexibility.

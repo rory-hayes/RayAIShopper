@@ -14,198 +14,172 @@ from pathlib import Path
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-def test_imports():
+def test_package_imports():
     """Test that all required packages can be imported"""
-    print("🔍 Testing package imports...")
+    print("Testing package imports...")
     
+    # Test core imports
     try:
         import fastapi
-        print(f"✅ FastAPI {fastapi.__version__}")
+        import pydantic
+        import uvicorn
+        import openai
+        import httpx
+        import python_dotenv
+        print("Core packages: OK")
     except ImportError as e:
-        print(f"❌ FastAPI import failed: {e}")
+        print(f"Missing core package: {e}")
         return False
     
+    # Test optional packages
     try:
-        import openai
-        print(f"✅ OpenAI {openai.__version__}")
-    except ImportError as e:
-        print(f"❌ OpenAI import failed: {e}")
-        return False
+        import pandas
+        print("Optional pandas: OK")
+    except ImportError:
+        print("WARNING: pandas not available - using lightweight mode")
+    
+    try:
+        import numpy
+        print("Optional numpy: OK")
+    except ImportError:
+        print("WARNING: numpy not available - using lightweight mode")
     
     try:
         import faiss
-        print(f"✅ FAISS")
-    except ImportError as e:
-        print(f"❌ FAISS import failed: {e}")
-        return False
-    
-    try:
-        import pandas as pd
-        print(f"✅ Pandas {pd.__version__}")
-    except ImportError as e:
-        print(f"❌ Pandas import failed: {e}")
-        return False
-    
-    try:
-        import numpy as np
-        print(f"✅ NumPy {np.__version__}")
-    except ImportError as e:
-        print(f"❌ NumPy import failed: {e}")
-        return False
+        print("Optional FAISS: OK")
+    except ImportError:
+        print("WARNING: FAISS not available - using lightweight similarity")
     
     return True
 
 def test_app_imports():
     """Test that app modules can be imported"""
-    print("\n🔍 Testing app module imports...")
+    print("\nTesting app module imports...")
     
     try:
         from app.config import settings
-        print(f"✅ App config loaded")
-        print(f"   - GPT Model: {settings.gpt_model}")
-        print(f"   - Embedding Model: {settings.embedding_model}")
-        print(f"   - Environment: {settings.environment}")
+        print("Settings: OK")
     except ImportError as e:
-        print(f"❌ App config import failed: {e}")
+        print(f"Settings import failed: {e}")
         return False
     
     try:
-        from app.services.openai_service import OpenAIService
-        print(f"✅ OpenAI service")
+        from app.services.similarity_service import LightweightSimilarityService
+        print("Similarity service: OK")
     except ImportError as e:
-        print(f"❌ OpenAI service import failed: {e}")
+        print(f"Similarity service import failed: {e}")
         return False
     
     try:
-        from app.services.vector_service import VectorSearchService
-        print(f"✅ Vector search service")
+        from app.utils.embeddings import EmbeddingGenerator
+        print("Embedding generator: OK")
     except ImportError as e:
-        print(f"❌ Vector search service import failed: {e}")
+        print(f"Embedding generator import failed: {e}")
         return False
     
     try:
-        from app.services.recommendation_service import RecommendationService
-        print(f"✅ Recommendation service")
+        from app.main import app
+        print("FastAPI app: OK")
     except ImportError as e:
-        print(f"❌ Recommendation service import failed: {e}")
+        print(f"FastAPI app import failed: {e}")
         return False
     
     return True
 
 def test_data_files():
-    """Test that required data files exist"""
-    print("\n🔍 Testing data files...")
+    """Test data file availability"""
+    print("\nTesting data files...")
     
     from app.config import settings
     
-    # Check if sample data exists
-    if os.path.exists(settings.styles_csv_path):
-        print(f"✅ Sample styles CSV found: {settings.styles_csv_path}")
-        
-        # Check file size
-        import pandas as pd
-        try:
-            df = pd.read_csv(settings.styles_csv_path)
-            print(f"   - Contains {len(df)} products")
-            print(f"   - Columns: {list(df.columns)}")
-        except Exception as e:
-            print(f"⚠️  Could not read CSV: {e}")
-    else:
-        print(f"⚠️  Sample styles CSV not found: {settings.styles_csv_path}")
-        print("   Run the embedding generation script after adding the data file")
+    # Test CSV file
+    try:
+        import csv
+        with open(settings.styles_csv_path, 'r', encoding='utf-8') as file:
+            csv_reader = csv.DictReader(file)
+            sample_rows = list(csv_reader)[:5]
+            print(f"Sample styles CSV: OK ({len(sample_rows)} sample rows)")
+    except FileNotFoundError:
+        print(f"WARNING: Sample styles CSV not found: {settings.styles_csv_path}")
+    except Exception as e:
+        print(f"WARNING: Could not read CSV: {e}")
     
-    # Check if embeddings exist
-    if os.path.exists(settings.faiss_index_path):
-        print(f"✅ FAISS index found: {settings.faiss_index_path}")
-    else:
-        print(f"⚠️  FAISS index not found: {settings.faiss_index_path}")
-        print("   Run: python scripts/generate_embeddings.py")
-    
-    return True
+    # Test FAISS index (optional)
+    try:
+        import faiss
+        index = faiss.read_index(settings.faiss_index_path)
+        print(f"FAISS index: OK ({index.ntotal} vectors)")
+    except FileNotFoundError:
+        print(f"WARNING: FAISS index not found: {settings.faiss_index_path}")
+    except ImportError:
+        print("INFO: FAISS not available - using lightweight similarity")
+    except Exception as e:
+        print(f"WARNING: Could not load FAISS index: {e}")
 
 def test_openai_connection():
-    """Test OpenAI API connection (optional)"""
-    print("\n🔍 Testing OpenAI API connection...")
+    """Test OpenAI API connection"""
+    print("\nTesting OpenAI API connection...")
+    
+    from app.config import settings
+    
+    if not settings.openai_api_key:
+        print("WARNING: OpenAI API key not configured")
+        return False
     
     try:
-        from app.config import settings
+        import openai
+        client = openai.OpenAI(api_key=settings.openai_api_key)
         
-        if not settings.openai_api_key or settings.openai_api_key == "your-api-key-here":
-            print("⚠️  OpenAI API key not configured")
-            print("   Update the API key in app/config.py")
+        # Test with a simple embedding request
+        response = client.embeddings.create(
+            input="test",
+            model="text-embedding-ada-002"
+        )
+        
+        if response.data and len(response.data) > 0:
+            print("OpenAI API: OK")
+            return True
+        else:
+            print("WARNING: OpenAI API returned empty response")
             return False
-        
-        # Test a simple API call
-        import asyncio
-        from app.services.openai_service import OpenAIService
-        
-        async def test_api():
-            service = OpenAIService()
-            try:
-                # Test embedding generation with a simple text
-                embedding = await service.get_query_embedding("test query")
-                if embedding and len(embedding) > 0:
-                    print(f"✅ OpenAI API connection successful")
-                    print(f"   - Embedding dimension: {len(embedding)}")
-                    return True
-                else:
-                    print("❌ OpenAI API returned empty embedding")
-                    return False
-            except Exception as e:
-                print(f"❌ OpenAI API connection failed: {e}")
-                return False
-        
-        return asyncio.run(test_api())
-        
+            
     except Exception as e:
-        print(f"❌ OpenAI connection test failed: {e}")
+        print(f"WARNING: OpenAI API test failed: {e}")
         return False
 
-def main():
-    """Run all tests"""
-    print("🚀 Ray AI Shopper Backend Setup Test\n")
+def run_all_tests():
+    """Run all setup tests"""
+    print("Ray AI Shopper Backend Setup Test\n")
+    print("=" * 50)
     
-    tests = [
-        ("Package Imports", test_imports),
-        ("App Module Imports", test_app_imports),
-        ("Data Files", test_data_files),
-        ("OpenAI Connection", test_openai_connection),
-    ]
+    results = {
+        'packages': test_package_imports(),
+        'app_modules': test_app_imports(),
+        'openai': test_openai_connection()
+    }
     
-    results = []
-    for test_name, test_func in tests:
-        try:
-            result = test_func()
-            results.append((test_name, result))
-        except Exception as e:
-            print(f"❌ {test_name} test crashed: {e}")
-            results.append((test_name, False))
+    # Data files test (non-critical)
+    test_data_files()
     
     # Summary
-    print("\n" + "="*50)
-    print("📊 Test Summary:")
-    print("="*50)
+    print("Test Summary:")
+    print("-" * 20)
     
-    passed = 0
-    for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if result:
-            passed += 1
+    for test_name, result in results.items():
+        status = "PASS" if result else "FAIL"
+        print(f"{test_name}: {status}")
     
-    print(f"\nPassed: {passed}/{len(results)} tests")
+    all_passed = all(results.values())
     
-    if passed == len(results):
-        print("\n🎉 All tests passed! Your backend setup is ready.")
-        print("\nNext steps:")
-        print("1. Generate embeddings: python scripts/generate_embeddings.py")
-        print("2. Start the server: python -m uvicorn app.main:app --reload")
+    if all_passed:
+        print("\nAll tests passed! Your backend setup is ready.")
+        print("You can now run: python start.py")
+        return True
     else:
-        print("\n⚠️  Some tests failed. Please check the errors above.")
+        print("\nSome tests failed. Please check the errors above.")
+        print("The backend may still work in degraded mode.")
         return False
-    
-    return True
 
 if __name__ == "__main__":
-    success = main()
+    success = run_all_tests()
     sys.exit(0 if success else 1) 

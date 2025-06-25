@@ -115,17 +115,17 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
         style_prompt: enhancedStylePrompt
       }
 
-      console.log('🔥 TRYON: Starting enhanced virtual try-on generation...')
-      console.log('🎨 TRYON: Enhanced style prompt:', enhancedStylePrompt)
+      console.log('TRYON: Starting enhanced virtual try-on generation...')
+      console.log('TRYON: Enhanced style prompt:', enhancedStylePrompt)
       
       const result = await virtualTryOn(request)
       
       setProgress(100)
       setTryOnResult(result)
-      console.log('✅ TRYON: Successfully generated enhanced virtual try-on')
+      console.log('TRYON: Successfully generated enhanced virtual try-on')
       
     } catch (err) {
-      console.error('❌ TRYON: Generation failed:', err)
+      console.error('TRYON: Generation failed:', err)
       setError(err instanceof Error ? err.message : 'Failed to generate virtual try-on')
     } finally {
       setIsGenerating(false)

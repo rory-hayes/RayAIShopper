@@ -76,25 +76,25 @@ export const Step6OutfitRail: React.FC = () => {
 
   // Determine data source: cached recommendations first, then selectedItems, then mock
   const getInitialRecommendations = (): ClothingItem[] => {
-    console.log('🔄 CONTEXT: Determining data source for recommendations')
-    console.log('🔄 CONTEXT: cachedRecommendations:', formData.cachedRecommendations?.length || 0)
-    console.log('🔄 CONTEXT: selectedItems:', formData.selectedItems?.length || 0)
-    console.log('🔄 CONTEXT: hasLoadedRecommendations:', formData.hasLoadedRecommendations)
+    console.log('CONTEXT: Determining data source for recommendations')
+    console.log('CONTEXT: cachedRecommendations:', formData.cachedRecommendations?.length || 0)
+    console.log('CONTEXT: selectedItems:', formData.selectedItems?.length || 0)
+    console.log('CONTEXT: hasLoadedRecommendations:', formData.hasLoadedRecommendations)
 
     // First priority: Use cached recommendations with preserved interactions
     if (formData.cachedRecommendations && formData.cachedRecommendations.length > 0) {
-      console.log('✅ CONTEXT: Using cached recommendations')
+      console.log('CONTEXT: Using cached recommendations')
       return convertToClothingItems(formData.cachedRecommendations, formData.userInteractions)
     }
     
     // Second priority: Use selectedItems (fresh API data)
     if (formData.selectedItems && formData.selectedItems.length > 0) {
-      console.log('✅ CONTEXT: Using selectedItems (fresh API data)')
+      console.log('CONTEXT: Using selectedItems (fresh API data)')
       return convertToClothingItems(formData.selectedItems, formData.userInteractions)
     }
     
     // Fallback: Use mock data
-    console.log('⚠️ CONTEXT: Falling back to mock data')
+    console.log('WARNING: Falling back to mock data')
     return mockClothingItems
   }
 
@@ -176,13 +176,13 @@ export const Step6OutfitRail: React.FC = () => {
 
   // Smart item replacement - rotate from available pool first, then API call if needed
   const replaceItem = async (removedItemId: string): Promise<boolean> => {
-    console.log('🔄 REPLACE: Attempting to replace item:', removedItemId)
-    console.log('🔄 REPLACE: Available for rotation:', availableForRotation.length)
+    console.log('REPLACE: Attempting to replace item:', removedItemId)
+    console.log('REPLACE: Available for rotation:', availableForRotation.length)
     
     // First, try to replace from available pool
     if (availableForRotation.length > 0) {
       const newItem = availableForRotation[0]
-      console.log('🔄 ROTATE: Replacing with item from pool:', newItem.name)
+      console.log('ROTATE: Replacing with item from pool:', newItem.name)
       
       // Update displayed items
       setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? newItem.id : id))
@@ -196,11 +196,11 @@ export const Step6OutfitRail: React.FC = () => {
     }
     
     // If no items available in pool, make API call for fresh items
-    console.log('🔄 API: No items left in pool, fetching fresh recommendations...')
+    console.log('API: No items left in pool, fetching fresh recommendations...')
     const apiSuccess = await fetchFreshItem(removedItemId)
     
     if (!apiSuccess) {
-      console.log('⚠️ REPLACE: Both rotation and API failed, checking for any non-displayed items')
+      console.log('WARNING: Both rotation and API failed, checking for any non-displayed items')
       
       // Last resort: check if there are any non-disliked items not currently displayed
       const allNonDislikedItems = allItems.filter(item => !item.disliked)
@@ -208,7 +208,7 @@ export const Step6OutfitRail: React.FC = () => {
       
       if (nonDisplayedItems.length > 0) {
         const fallbackItem = nonDisplayedItems[0]
-        console.log('🔄 FALLBACK: Using non-displayed item:', fallbackItem.name)
+        console.log('FALLBACK: Using non-displayed item:', fallbackItem.name)
         
         setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? fallbackItem.id : id))
         
@@ -228,7 +228,7 @@ export const Step6OutfitRail: React.FC = () => {
   const fetchFreshItem = async (removedItemId: string): Promise<boolean> => {
     try {
       if (!currentSessionId) {
-        console.error('❌ REFRESH: No session ID available')
+        console.error('REFRESH: No session ID available')
         setToast({
           message: 'Please wait for recommendations to load first',
           type: 'error'
@@ -246,7 +246,7 @@ export const Step6OutfitRail: React.FC = () => {
       const freshItems = Array.isArray(freshItemsResponse) ? freshItemsResponse : []
       
       if (freshItems.length === 0) {
-        console.warn('⚠️ REFRESH: No fresh items available')
+        console.warn('WARNING: No fresh items available')
         setToast({
           message: 'No more new recommendations available',
           type: 'info'
@@ -280,7 +280,7 @@ export const Step6OutfitRail: React.FC = () => {
 
       return true
     } catch (error) {
-      console.error('❌ REFRESH: Failed to get fresh items:', error)
+      console.error('REFRESH: Failed to get fresh items:', error)
       setToast({
         message: 'Failed to load new recommendations',
         type: 'error'
@@ -290,9 +290,27 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const toggleLike = (itemId: string) => {
+    const item = allItems.find((i: ClothingItem) => i.id === itemId)
+    if (!item) return
+
+    const wasLiked = item.liked
+    
     setAllItems((prev: ClothingItem[]) => prev.map((item: ClothingItem) => 
       item.id === itemId ? { ...item, liked: !item.liked, disliked: false } : item
     ))
+
+    // Show appropriate toast message
+    if (!wasLiked) {
+      setToast({
+        message: `${item.name} added to your favorites`,
+        type: 'success'
+      })
+    } else {
+      setToast({
+        message: `${item.name} removed from favorites`,
+        type: 'info'
+      })
+    }
   }
 
   const toggleDislike = async (itemId: string) => {
@@ -300,15 +318,15 @@ export const Step6OutfitRail: React.FC = () => {
     if (!item) return
 
     if (!item.disliked) {
-      console.log('👎 DISLIKE: User disliked item:', item.name)
+      console.log('DISLIKE: User disliked item:', item.name)
       
       // Start the removal animation
       setRemovingItems((prev: Set<string>) => new Set([...prev, itemId]))
       
-      // Show toast notification
+      // Show toast notification with red color for removal
       setToast({
         message: `${item.name} removed from recommendations`,
-        type: 'info'
+        type: 'error'
       })
 
       // Mark item as refreshing to show loading state
@@ -326,7 +344,7 @@ export const Step6OutfitRail: React.FC = () => {
           ))
         } else {
           // If replacement failed, just reset the item state (don't mark as disliked)
-          console.log('⚠️ DISLIKE: Replacement failed, keeping item visible')
+          console.log('WARNING: Replacement failed, keeping item visible')
           setToast({
             message: 'Unable to find replacement. Item will remain visible.',
             type: 'info'
@@ -371,20 +389,20 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleTryOn = (itemId: string) => {
-    console.log('🔥 TRYON: handleTryOn called for itemId:', itemId)
+    console.log('TRYON: handleTryOn called for itemId:', itemId)
     
     const item = allItems.find((i: ClothingItem) => i.id === itemId)
     if (!item) {
-      console.log('❌ TRYON: Item not found for id:', itemId)
+      console.log('WARNING: Item not found for id:', itemId)
       return
     }
 
-    console.log('🔥 TRYON: Found item:', item.name)
-    console.log('🔥 TRYON: Checking selfie - formData.selfieImage:', !!formData.selfieImage)
+    console.log('TRYON: Found item:', item.name)
+    console.log('TRYON: Checking selfie - formData.selfieImage:', !!formData.selfieImage)
 
     // Check if user has a selfie
     if (!formData.selfieImage) {
-      console.log('❌ TRYON: No selfie found, showing toast')
+      console.log('WARNING: No selfie found, showing toast')
       setToast({
         message: 'Please upload a selfie in Step 4 to use virtual try-on',
         type: 'info'
@@ -392,7 +410,7 @@ export const Step6OutfitRail: React.FC = () => {
       return
     }
 
-    console.log('🔥 TRYON: Selfie found, starting FileReader...')
+    console.log('TRYON: Selfie found, starting FileReader...')
 
     // Convert selfie to base64 string
     const reader = new FileReader()
@@ -400,8 +418,8 @@ export const Step6OutfitRail: React.FC = () => {
       const base64String = reader.result as string
       const base64Data = convertFromBase64(base64String)
       
-      console.log('🔥 TRYON: Setting up try-on data for item:', item.name)
-      console.log('🔥 TRYON: Base64 data length:', base64Data.length)
+      console.log('TRYON: Setting up try-on data for item:', item.name)
+      console.log('TRYON: Base64 data length:', base64Data.length)
       
       // Set the try-on data and show modal
       setTryOnData({
@@ -412,7 +430,7 @@ export const Step6OutfitRail: React.FC = () => {
       })
       setShowTryOn(itemId)
       
-      console.log('🔥 TRYON: Modal state set, should show now')
+      console.log('TRYON: Modal state set, should show now')
     }
     reader.readAsDataURL(formData.selfieImage)
   }
@@ -444,9 +462,9 @@ export const Step6OutfitRail: React.FC = () => {
       usage: 'Unknown' // We lost this info in conversion, could be improved
     }))
     
-    console.log('🔥 STEP6 DEBUG: selectedClothingItems:', selectedClothingItems)
-    console.log('🔥 STEP6 DEBUG: converted selectedItems:', selectedItems)
-    console.log('🔥 STEP6 DEBUG: First converted item:', selectedItems[0])
+    console.log('STEP6 DEBUG: selectedClothingItems:', selectedClothingItems)
+    console.log('STEP6 DEBUG: converted selectedItems:', selectedItems)
+    console.log('STEP6 DEBUG: First converted item:', selectedItems[0])
     
     updateFormData({ selectedItems })
     nextStep()
@@ -467,7 +485,7 @@ export const Step6OutfitRail: React.FC = () => {
       const itemsToAdd = availableForRotation.slice(0, itemsNeeded)
       
       if (itemsToAdd.length > 0) {
-        console.log(`🔄 AUTO-FILL: Adding ${itemsToAdd.length} items to maintain display count`)
+        console.log(`AUTO-FILL: Adding ${itemsToAdd.length} items to maintain display count`)
         setDisplayedItemIds(prev => [...prev, ...itemsToAdd.map(item => item.id)])
       }
     }
@@ -500,19 +518,19 @@ export const Step6OutfitRail: React.FC = () => {
   useEffect(() => {
     // Skip fetching if we already have cached recommendations or have loaded before
     if (hasLoadedRecommendations || (formData.cachedRecommendations && formData.cachedRecommendations.length > 0)) {
-      console.log('🔄 STEP6: Skipping API call - using cached data or already loaded')
+      console.log('STEP6: Skipping API call - using cached data or already loaded')
       return
     }
 
     // Skip if we don't have the necessary data to make recommendations
     if (!formData.shoppingPrompt) {
-      console.log('🔄 STEP6: Skipping API call - no shopping prompt provided')
+      console.log('STEP6: Skipping API call - no shopping prompt provided')
       return
     }
 
     const fetchRecommendations = async () => {
       try {
-        console.log('🔄 STEP6: Fetching fresh recommendations from API...')
+        console.log('STEP6: Fetching fresh recommendations from API...')
         
         const userProfile = convertToUserProfile(formData)
         const response = await apiService.getRecommendations({
@@ -520,8 +538,8 @@ export const Step6OutfitRail: React.FC = () => {
           inspiration_images: formData.inspirationImages.map(img => convertFromBase64(img))
         })
 
-        console.log('✅ STEP6: Received recommendations:', response.recommendations.length)
-        console.log('🔥 STEP6: Session ID from response:', response.session_id)
+        console.log('STEP6: Received recommendations:', response.recommendations.length)
+        console.log('TRYON: Session ID from response:', response.session_id)
 
         // Store session ID in both form data and local state
         setCurrentSessionId(response.session_id)
@@ -529,7 +547,7 @@ export const Step6OutfitRail: React.FC = () => {
 
         // Set session ID in chat context
         if (chatContext && chatContext.sessionId !== response.session_id) {
-          console.log('🤖 CHAT: Setting session ID in chat context:', response.session_id)
+          console.log('CHAT: Setting session ID in chat context:', response.session_id)
           chatContext.setSessionId(response.session_id)
         }
 
@@ -561,7 +579,7 @@ export const Step6OutfitRail: React.FC = () => {
         })
 
       } catch (error) {
-        console.error('❌ STEP6: Failed to fetch recommendations:', error)
+        console.error('STEP6: Failed to fetch recommendations:', error)
         setToast({
           message: 'Failed to load recommendations. Please try again.',
           type: 'error'
@@ -577,7 +595,7 @@ export const Step6OutfitRail: React.FC = () => {
     const itemsToReplace = Math.min(3, displayedItemIds.length) // Replace up to 3 items
     const idsToReplace = displayedItemIds.slice(0, itemsToReplace)
     
-    console.log('🔄 MORE OPTIONS: Replacing items:', idsToReplace)
+    console.log('MORE OPTIONS: Replacing items:', idsToReplace)
     
     let replacedCount = 0
     for (const itemId of idsToReplace) {

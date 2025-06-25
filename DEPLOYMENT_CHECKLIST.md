@@ -1,143 +1,233 @@
-# Ray AI Shopper - Deployment Checklist
+# Ray AI Shopper Deployment Checklist
 
-## 🚀 Quick Deploy to Vercel
+## Quick Deploy to Vercel
 
-### Step 1: Push to GitHub
-```bash
-# In your project root
-git add .
-git commit -m "Add Ray AI Shopper backend with Vercel config"
-git push origin main
-```
+### Frontend Deployment
+1. **Prepare the frontend:**
+   ```bash
+   cd RayAIShopper
+   npm install
+   npm run build
+   ```
 
-### Step 2: Deploy to Vercel
+2. **Deploy to Vercel:**
+   ```bash
+   npx vercel --prod
+   ```
 
-#### Option A: Vercel Dashboard (Recommended)
-1. Go to [vercel.com](https://vercel.com)
-2. Click "New Project"
-3. Import your GitHub repository
-4. Set **Root Directory** to `backend`
-5. **Framework Preset**: Other
-6. **Build Command**: (leave empty)
-7. **Output Directory**: (leave empty)
-8. **Install Command**: `pip install -r requirements.txt`
+3. **Configure environment variables in Vercel dashboard:**
+   - `VITE_API_BASE_URL`: Your backend API URL
+   - Any other frontend environment variables
 
-#### Option B: Vercel CLI
-```bash
-cd backend
-npx vercel --prod
-```
+### Backend Deployment
+1. **Prepare the backend:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
 
-### Step 3: Configure Environment Variables
+2. **Deploy backend to Vercel:**
+   ```bash
+   cd backend
+   npx vercel --prod
+   ```
 
-In Vercel Dashboard → Project Settings → Environment Variables:
+3. **Configure environment variables in Vercel dashboard:**
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `ENVIRONMENT`: "production"
+   - Any other backend environment variables
 
-```
-OPENAI_API_KEY=your-openai-api-key-here
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-```
+4. **Update frontend API URL:**
+   - Update `VITE_API_BASE_URL` in frontend Vercel settings
+   - Point to your deployed backend URL
 
-### Step 4: Test Deployment
-
-Your API will be at: `https://your-project-name.vercel.app`
-
-Test endpoints:
-```bash
-# Health check
-curl https://your-project-name.vercel.app/api/v1/health
-
-# Interactive docs
-https://your-project-name.vercel.app/docs
-```
-
-## 📋 Pre-Deployment Checklist
-
-- [ ] Code pushed to GitHub
-- [ ] `backend/` directory contains all necessary files
-- [ ] `vercel.json` configuration present
-- [ ] `requirements.txt` includes all dependencies
-- [ ] Environment variables configured in Vercel
-- [ ] Sample data file (`data/sample_styles.csv`) committed to repo
-
-## 🔧 Key Files for Deployment
-
-### Required Files
-- `backend/vercel.json` - Vercel configuration
-- `backend/requirements.txt` - Python dependencies
-- `backend/app/main.py` - FastAPI application entry point
-- `backend/data/sample_styles.csv` - Product data (44k items)
-
-### Configuration Files
-- `backend/app/config.py` - Environment-aware settings
-- `backend/.gitignore` - Excludes large generated files
-- `.github/workflows/deploy.yml` - Auto-deployment (optional)
-
-## 🚨 Important Notes
-
-### Data Files
-- The FAISS index files are **NOT** in Git (too large)
-- Backend will run in **fallback mode** initially
-- Fallback mode uses random product selection instead of AI similarity
-- This allows testing the API without full embedding generation
-
-### Fallback Mode
-When FAISS index is not available:
-- ✅ API endpoints work normally
-- ✅ Returns random product recommendations
-- ✅ Chat and try-on features work
-- ⚠️ No semantic similarity matching
-- ⚠️ Health check shows "degraded" status
-
-### Full AI Mode (Optional)
-To enable full AI similarity search:
-1. Generate embeddings locally: `python scripts/generate_embeddings.py`
-2. Upload files to external storage (S3, etc.)
-3. Update config to load from external URLs
-
-## 🎯 Expected Results
-
-### Successful Deployment
-- ✅ Health endpoint returns `200 OK`
-- ✅ Status: "degraded" (fallback mode)
-- ✅ Interactive docs at `/docs`
-- ✅ Recommendations return random products
-- ✅ Chat assistant works
-- ✅ All endpoints respond correctly
-
-### API Endpoints Available
-- `GET /api/v1/health` - Service status
-- `POST /api/v1/recommendations` - Get outfit recommendations
-- `POST /api/v1/chat` - Chat with fashion assistant
-- `POST /api/v1/tryon` - Virtual try-on with DALL-E
-- `POST /api/v1/feedback` - Process user feedback
-- `POST /api/v1/refresh` - Get fresh recommendations
-
-## 🔗 Next Steps After Deployment
-
-1. **Test the API** using the interactive docs
-2. **Update your React frontend** to use the Vercel URL
-3. **Monitor performance** in Vercel dashboard
-4. **Optional**: Set up full AI mode with proper embeddings
-5. **Optional**: Configure custom domain
-
-## 💡 Troubleshooting
-
-### Common Issues
-- **Build fails**: Check `requirements.txt` and Python version
-- **Function timeout**: Increase timeout in `vercel.json`
-- **Memory limit**: Upgrade to Vercel Pro for more RAM
-- **CORS errors**: Update `cors_origins` in config
-
-### Debug Commands
-```bash
-# Check deployment logs
-vercel logs your-project-name
-
-# Local development
-cd backend && vercel dev
-```
+### Quick Test
+- Visit your deployed frontend URL
+- Complete the wizard flow
+- Test recommendations and chat features
+- Verify virtual try-on functionality
 
 ---
 
-**Estimated deployment time**: 5-10 minutes 
+## Pre-Deployment Checklist
+
+### Frontend Checklist
+- [ ] All dependencies installed (`npm install`)
+- [ ] Build succeeds without errors (`npm run build`)
+- [ ] Environment variables configured
+- [ ] API endpoints point to production backend
+- [ ] All routes work correctly
+- [ ] Mobile responsiveness tested
+- [ ] Cross-browser compatibility verified
+
+### Backend Checklist
+- [ ] All dependencies installed (`pip install -r requirements.txt`)
+- [ ] Environment variables configured
+- [ ] OpenAI API key valid and working
+- [ ] CORS settings allow frontend domain
+- [ ] All endpoints return proper responses
+- [ ] Error handling implemented
+- [ ] Rate limiting configured (if needed)
+
+### Testing Checklist
+- [ ] Complete wizard flow works end-to-end
+- [ ] API endpoints return expected data
+- [ ] Error states handled gracefully
+- [ ] Loading states work properly
+- [ ] Chat functionality operational
+- [ ] Virtual try-on generates images
+- [ ] Mobile experience optimized
+
+### Performance Checklist
+- [ ] Frontend bundle size optimized
+- [ ] Images optimized and compressed
+- [ ] API response times acceptable
+- [ ] Caching strategies implemented
+- [ ] CDN configured (if applicable)
+
+---
+
+## Expected Results
+
+**Lightweight Mode (Without Full AI Features):**
+- API endpoints work normally
+- Returns random product recommendations
+- Chat and try-on features work
+- WARNING: No semantic similarity matching
+- WARNING: Health check shows "degraded" status
+
+**Full Mode (With OpenAI API and Embeddings):**
+- Health endpoint returns `200 OK`
+- Status: "healthy" (full functionality)
+- Interactive docs at `/docs`
+- Recommendations use semantic similarity
+- Chat assistant works with full context
+- All endpoints respond correctly
+
+---
+
+## Post-Deployment Verification
+
+### Frontend Verification
+1. **Load the application:**
+   - Visit the deployed URL
+   - Verify the welcome page loads
+   - Check that all assets load correctly
+
+2. **Test the wizard flow:**
+   - Complete all 8 steps
+   - Upload images (inspiration and selfie)
+   - Verify data persistence between steps
+   - Test navigation (forward/back)
+
+3. **Test interactive features:**
+   - Chat assistant functionality
+   - Virtual try-on modal
+   - Like/dislike interactions
+   - Cart management
+
+### Backend Verification
+1. **Check health endpoint:**
+   ```bash
+   curl https://your-backend-url.vercel.app/health
+   ```
+
+2. **Test API endpoints:**
+   ```bash
+   curl https://your-backend-url.vercel.app/api/recommendations
+   curl https://your-backend-url.vercel.app/api/chat
+   ```
+
+3. **Verify documentation:**
+   - Visit `/docs` endpoint
+   - Test endpoints through Swagger UI
+
+## Troubleshooting
+
+### Common Issues
+
+**Frontend Build Errors:**
+- Check Node.js version (18+ required)
+- Verify all dependencies are installed
+- Check for TypeScript errors
+- Ensure environment variables are set
+
+**Backend Deployment Errors:**
+- Check Python version (3.8+ required)
+- Verify requirements.txt is complete
+- Check for import errors
+- Ensure environment variables are set
+
+**API Connection Issues:**
+- Verify CORS settings
+- Check API URL configuration
+- Verify network connectivity
+- Check for rate limiting
+
+**OpenAI API Issues:**
+- Verify API key is valid
+- Check API quota and billing
+- Verify model availability
+- Check for rate limiting
+
+### Performance Issues
+
+**Slow Loading:**
+- Check bundle size
+- Optimize images
+- Enable compression
+- Use CDN for static assets
+
+**API Timeouts:**
+- Increase timeout values
+- Optimize database queries
+- Implement caching
+- Use background processing
+
+### Environment-Specific Issues
+
+**Development vs Production:**
+- Check environment variables
+- Verify API endpoints
+- Check CORS settings
+- Verify SSL certificates
+
+**Mobile Issues:**
+- Test on actual devices
+- Check responsive design
+- Verify touch interactions
+- Test image upload on mobile
+
+---
+
+## Monitoring and Maintenance
+
+### Health Checks
+- Set up monitoring for `/health` endpoint
+- Monitor API response times
+- Track error rates
+- Monitor resource usage
+
+### Logging
+- Configure proper logging levels
+- Monitor application logs
+- Set up error alerting
+- Track user interactions
+
+### Updates
+- Keep dependencies updated
+- Monitor security advisories
+- Test updates in staging
+- Plan rollback procedures
+
+---
+
+## Support
+
+For deployment issues:
+1. Check the logs in Vercel dashboard
+2. Verify all environment variables
+3. Test locally first
+4. Check this checklist again
+
+The application is designed to be deployment-friendly with fallback modes for various constraints. 

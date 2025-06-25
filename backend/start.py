@@ -31,42 +31,41 @@ def main():
     
     args = parser.parse_args()
     
-    print("🚀 Ray AI Shopper Backend Startup")
-    print("=" * 50)
+    print("Ray AI Shopper Backend Startup")
+    print("=" * 40)
+    print(f"Environment: {settings.environment}")
+    print(f"Port: {args.port}")
     
-    # Step 1: Run setup tests
-    if not args.skip_tests:
-        print("\n📋 Step 1: Running setup tests...")
-        try:
-            from scripts.test_setup import main as test_main
-            if not test_main():
-                print("❌ Setup tests failed. Please fix the issues above.")
-                return False
-        except Exception as e:
-            print(f"❌ Setup test failed: {e}")
-            return False
+    print("\nStep 1: Running setup tests...")
     
-    # Step 2: Generate embeddings if needed
-    if not args.skip_embeddings:
-        print("\n📋 Step 2: Checking embeddings...")
-        try:
-            from app.config import settings
-            
-            if not os.path.exists(settings.faiss_index_path):
-                print("🔄 FAISS index not found. Generating embeddings...")
-                from scripts.generate_embeddings import main as generate_main
-                success = asyncio.run(generate_main())
-                if not success:
-                    print("❌ Embedding generation failed.")
-                    return False
-            else:
-                print("✅ FAISS index found. Skipping embedding generation.")
-        except Exception as e:
-            print(f"❌ Embedding check failed: {e}")
-            return False
+    # Import and run setup tests
+    from scripts.test_setup import run_all_tests
     
-    # Step 3: Start the server
-    print(f"\n📋 Step 3: Starting FastAPI server on port {args.port}...")
+    try:
+        test_success = run_all_tests()
+        if not test_success:
+            print("WARNING: Some setup tests failed. Continuing in degraded mode...")
+    except Exception as e:
+        print(f"WARNING: Setup test failed: {e}")
+    
+    print("\nStep 2: Checking embeddings...")
+    
+    # Check if embeddings exist
+    if os.path.exists(settings.faiss_index_path):
+        print("FAISS index found - full functionality enabled")
+    else:
+        print("FAISS index not found - using lightweight mode")
+        print("Run 'python scripts/generate_embeddings.py' for full features")
+    
+    # Check OpenAI API
+    if settings.openai_api_key and settings.openai_api_key != "your-api-key-here":
+        print("OpenAI API key configured")
+    else:
+        print("WARNING: OpenAI API key not configured - some features disabled")
+    
+    print(f"\nStep 3: Starting FastAPI server on port {args.port}...")
+    
+    # Start the server
     try:
         import uvicorn
         print(f"🌐 Server will be available at:")
@@ -79,16 +78,15 @@ def main():
             "app.main:app",
             host="0.0.0.0",
             port=args.port,
-            reload=True,
+            reload=args.reload and settings.environment == "development",
             log_level="info"
         )
         
     except KeyboardInterrupt:
-        print("\n👋 Server stopped by user.")
-        return True
+        print("\nServer stopped by user")
     except Exception as e:
-        print(f"❌ Server startup failed: {e}")
-        return False
+        print(f"ERROR: Failed to start server: {e}")
+        sys.exit(1)
     
     return True
 

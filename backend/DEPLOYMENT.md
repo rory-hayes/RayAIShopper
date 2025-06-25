@@ -1,249 +1,257 @@
-# Vercel Deployment Guide
+# Ray AI Shopper Backend - Deployment Guide
 
-## 🚀 Deploy Ray AI Shopper Backend to Vercel
+## Deploy Ray AI Shopper Backend to Vercel
 
-This guide walks you through deploying the FastAPI backend to Vercel.
+This guide walks you through deploying the Ray AI Shopper backend to Vercel with proper configuration for both lightweight and full AI modes.
 
-## Prerequisites
+### Prerequisites
+- GitHub account
+- Vercel account
+- OpenAI API key (for full AI features)
 
-1. **Vercel Account**: Sign up at [vercel.com](https://vercel.com)
-2. **Vercel CLI**: Install globally
+### Quick Deploy Steps
+
+1. **Push your code to GitHub**
    ```bash
-   npm install -g vercel
+   git add .
+   git commit -m "Deploy Ray AI Shopper backend"
+   git push origin main
    ```
-3. **GitHub Repository**: Push your backend code to GitHub
 
-## Step 1: Prepare Data Files
+2. **Deploy to Vercel**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "New Project"
+   - Import your GitHub repository
+   - Set **Root Directory** to `backend`
+   - Framework: Other
+   - Deploy
 
-Since the FAISS index and embeddings are too large for Git, we need to generate and upload them separately.
+3. **Configure Environment Variables**
+   In Vercel Dashboard → Settings → Environment Variables:
+   ```
+   OPENAI_API_KEY=your-openai-api-key-here
+   ENVIRONMENT=production
+   ```
 
-### Option A: Generate Locally (Recommended)
-```bash
-# In your local backend directory
-python3 scripts/generate_embeddings.py
+4. **Test Your Deployment**
+   ```bash
+   curl https://your-project.vercel.app/health
+   ```
+
+### Deployment Modes
+
+The backend automatically adapts to available resources:
+
+**Lightweight Mode (Default on Vercel)**
+- No FAISS index required
+- Uses keyword-based similarity search
+- Random product recommendations as fallback
+- All API endpoints work normally
+- Perfect for demos and development
+
+**Full AI Mode (Optional)**
+- Requires FAISS index and embeddings
+- Semantic similarity search
+- OpenAI-powered recommendations
+- Better accuracy and relevance
+
+### Configuration Files
+
+The backend includes these deployment-ready files:
+
+**vercel.json**
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/app/main.py"
+    }
+  ],
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 30
+    }
+  }
+}
 ```
 
-This creates:
-- `data/clothing.index` (~200MB)
-- `data/metadata.pkl` (~50MB)
-- `data/sample_styles_with_embeddings.csv` (~500MB)
-- `data/storeLocationMap.json` (~1KB)
-
-### Option B: Use Pre-generated Files
-Contact the team for pre-generated data files if local generation fails.
-
-## Step 2: Upload Data to Vercel
-
-Since Vercel has deployment size limits, we'll upload the data files separately:
-
-```bash
-# Login to Vercel
-vercel login
-
-# Navigate to backend directory
-cd backend
-
-# Deploy (this will create the project)
-vercel
-
-# Upload data files using Vercel's file system
-vercel --prod
+**requirements.txt**
+```
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+openai==1.3.7
+httpx==0.25.2
+python-multipart==0.0.6
+python-dotenv==1.0.0
+pandas==2.1.4
 ```
 
-## Step 3: Set Environment Variables
+### Environment Configuration
 
-In your Vercel dashboard:
-
-1. Go to your project settings
-2. Navigate to "Environment Variables"
-3. Add these variables:
-
+**Development (.env)**
+```env
+OPENAI_API_KEY=your-api-key-here
+ENVIRONMENT=development
+LOG_LEVEL=DEBUG
 ```
-OPENAI_API_KEY=your-openai-api-key-here
+
+**Production (Vercel Environment Variables)**
+```
+OPENAI_API_KEY=your-api-key-here
 ENVIRONMENT=production
 LOG_LEVEL=INFO
 ```
 
-## Step 4: Configure vercel.json
+### API Endpoints
 
-The `vercel.json` file is already configured with:
-- Python runtime for FastAPI
-- 50MB max lambda size (for FAISS index)
-- 60-second timeout for AI operations
-- Proper routing for API endpoints
+All endpoints are available after deployment:
 
-## Step 5: Deploy
+**Core Endpoints**
+- `GET /health` - Service health check
+- `GET /docs` - Interactive API documentation
+- `POST /api/recommendations` - Get clothing recommendations
+- `POST /api/chat` - Chat with AI assistant
+- `POST /api/tryon` - Virtual try-on generation
 
-```bash
-# Deploy to production
-vercel --prod
+**Health Check Response**
+```json
+{
+  "status": "healthy",
+  "mode": "lightweight",
+  "features": {
+    "recommendations": true,
+    "chat": true,
+    "virtual_tryon": true,
+    "semantic_search": false
+  }
+}
 ```
 
-Your API will be available at: `https://your-project-name.vercel.app`
+### Testing Your Deployment
 
-## Step 6: Test Deployment
-
-Test the deployed API:
-
+**1. Health Check**
 ```bash
-# Health check
-curl https://your-project-name.vercel.app/api/v1/health
+curl https://your-project.vercel.app/health
+```
 
-# Test recommendations
-curl -X POST "https://your-project-name.vercel.app/api/v1/recommendations" \
+**2. Get Recommendations**
+```bash
+curl -X POST https://your-project.vercel.app/api/recommendations \
   -H "Content-Type: application/json" \
   -d '{
     "user_profile": {
-      "shopping_prompt": "casual summer outfit",
-      "gender": "Women",
-      "preferred_styles": ["Casual"],
-      "size": "M"
+      "style_preferences": ["casual", "modern"],
+      "color_preferences": ["blue", "black"],
+      "occasion": "work"
     }
   }'
 ```
 
-## Alternative: GitHub Integration
-
-For continuous deployment:
-
-1. **Connect GitHub**: In Vercel dashboard, import your GitHub repository
-2. **Auto-deploy**: Every push to main branch will trigger deployment
-3. **Environment Variables**: Set in Vercel dashboard as above
-
-## Data File Management
-
-### Large Files Challenge
-FAISS index files are too large for standard deployment. Solutions:
-
-#### Option 1: Vercel Blob Storage (Recommended)
-```python
-# Update vector_service.py to load from Vercel Blob
-import requests
-
-async def load_from_vercel_blob():
-    # Download FAISS index from Vercel Blob storage
-    response = requests.get(VERCEL_BLOB_URL)
-    # Save temporarily and load
-```
-
-#### Option 2: External Storage
-Upload data files to:
-- AWS S3
-- Google Cloud Storage
-- GitHub Releases (for public data)
-
-Update `app/config.py` to load from external URLs.
-
-#### Option 3: Smaller Dataset
-Use a subset of the 44k items for faster deployment:
-```python
-# In generate_embeddings.py
-df = df.head(5000)  # Use only 5k items
-```
-
-## Performance Optimization
-
-### Cold Start Optimization
-```python
-# In app/main.py
-@app.on_event("startup")
-async def startup():
-    # Pre-load FAISS index to reduce cold starts
-    await recommendation_service.initialize()
-```
-
-### Memory Management
-- FAISS index: ~2GB RAM
-- Vercel Pro: 3GB RAM limit
-- Consider using FAISS-GPU for larger datasets
-
-## Monitoring
-
-### Built-in Monitoring
-Vercel provides:
-- Function logs
-- Performance metrics
-- Error tracking
-- Usage analytics
-
-### Custom Monitoring
-Add to your FastAPI app:
-```python
-import time
-from fastapi import Request
-
-@app.middleware("http")
-async def monitor_requests(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    
-    # Log to Vercel
-    print(f"Request: {request.url.path} took {process_time:.3f}s")
-    return response
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. "Function timeout"
-- Increase timeout in `vercel.json`
-- Optimize FAISS index loading
-- Use smaller dataset for testing
-
-#### 2. "Memory limit exceeded"
-- Upgrade to Vercel Pro
-- Optimize data structures
-- Use external storage for large files
-
-#### 3. "Module not found"
-- Check `requirements.txt` includes all dependencies
-- Verify Python path in `vercel.json`
-
-#### 4. "FAISS index not found"
-- Ensure data files are uploaded
-- Check file paths in config
-- Use external storage URLs
-
-### Debug Deployment
+**3. Test Chat**
 ```bash
-# Check deployment logs
+curl -X POST https://your-project.vercel.app/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Help me find a professional outfit",
+    "context": {}
+  }'
+```
+
+### Performance Optimization
+
+**Vercel Function Limits**
+- Memory: 1024 MB (Hobby), 3008 MB (Pro)
+- Timeout: 10s (Hobby), 60s (Pro)
+- Cold start: ~1-2 seconds
+
+**Optimization Strategies**
+- Lightweight dependencies
+- Efficient fallback modes
+- Minimal memory usage
+- Fast startup times
+
+### Monitoring and Debugging
+
+**Vercel Dashboard**
+- Function logs and metrics
+- Performance monitoring
+- Error tracking
+- Usage statistics
+
+**Debug Commands**
+```bash
+# View deployment logs
 vercel logs your-project-name
 
-# Run local development
+# Local development with Vercel
 vercel dev
 ```
 
-## Production Checklist
+### Upgrading to Full AI Mode
 
-- [ ] Environment variables configured
-- [ ] CORS origins restricted to your domain
-- [ ] Data files uploaded/accessible
-- [ ] Health check endpoint working
-- [ ] API endpoints tested
-- [ ] Error handling verified
-- [ ] Performance monitoring enabled
+To enable full semantic search:
 
-## Cost Considerations
+1. **Generate embeddings locally:**
+   ```bash
+   python scripts/generate_embeddings.py
+   ```
 
-### Vercel Costs
-- **Hobby Plan**: Free (limited functions/bandwidth)
-- **Pro Plan**: $20/month (recommended for production)
+2. **Upload to cloud storage:**
+   - Upload FAISS index to S3/GCS
+   - Upload product metadata
 
-### OpenAI API Costs
-- Embeddings: ~$5.72 for initial generation
-- Recommendations: ~$0.01-0.02 per request
-- Virtual try-on: ~$0.04 per DALL-E image
+3. **Update configuration:**
+   ```python
+   # In config.py
+   FAISS_INDEX_URL = "https://your-storage/index.faiss"
+   METADATA_URL = "https://your-storage/metadata.pkl"
+   ```
 
-## Next Steps
+### Troubleshooting
 
-1. **Frontend Integration**: Update your React app to use the Vercel API URL
-2. **Custom Domain**: Add your domain in Vercel settings
-3. **SSL**: Automatic with Vercel
-4. **Analytics**: Monitor usage and performance
-5. **Scaling**: Consider Vercel Pro for higher limits
+**Common Issues**
 
----
+*Build Failures*
+- Check Python version compatibility
+- Verify requirements.txt
+- Check for missing dependencies
 
-**Expected Deployment Time**: 10-15 minutes (excluding data generation) 
+*Function Timeouts*
+- Increase timeout in vercel.json
+- Optimize slow operations
+- Use background processing
+
+*Memory Errors*
+- Reduce data loading
+- Use streaming for large files
+- Upgrade to Vercel Pro
+
+*CORS Issues*
+- Update allowed origins
+- Check frontend domain
+- Verify headers
+
+**Debug Steps**
+1. Check Vercel function logs
+2. Test endpoints individually
+3. Verify environment variables
+4. Check local development
+
+### Support
+
+For deployment issues:
+1. Check Vercel function logs
+2. Verify all environment variables are set
+3. Test the same configuration locally
+4. Consult Vercel documentation
+
+The backend is designed to be deployment-friendly with automatic fallbacks and lightweight operation modes. 

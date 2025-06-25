@@ -30,7 +30,7 @@ class RecommendationService:
     async def get_recommendations(self, request: RecommendationRequest) -> RecommendationResponse:
         """
         Get personalized recommendations following the cookbook's RAG approach:
-        1. Analyze user profile and inspiration images with GPT-4o mini
+        1. Analyse user profile and inspiration images with GPT-4o mini
         2. Create enhanced search query
         3. Generate query embedding
         4. Perform vector similarity search
@@ -41,10 +41,10 @@ class RecommendationService:
             session_id = request.session_id or str(uuid.uuid4())
             logger.info(f"Processing recommendation request for session {session_id}")
             
-            # Step 1: Analyze user profile
+            # Step 1: Assigne user profile
             user_profile = request.user_profile
             
-            # Step 2: Analyze inspiration images if provided
+            # Step 2: Analyse inspiration images if provided
             inspiration_analysis = None
             if request.inspiration_images:
                 logger.info(f"Analyzing {len(request.inspiration_images)} inspiration images...")

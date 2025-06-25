@@ -17,27 +17,27 @@ export const Step7Checkout: React.FC = () => {
   const selectedItems = formData.selectedItems || []
   
   // Debug logging
-  console.log('🔥 CHECKOUT DEBUG: selectedItems:', selectedItems)
-  console.log('🔥 CHECKOUT DEBUG: selectedItems length:', selectedItems.length)
+  console.log('CHECKOUT DEBUG: selectedItems:', selectedItems)
+  console.log('CHECKOUT DEBUG: selectedItems length:', selectedItems.length)
   if (selectedItems.length > 0) {
-    console.log('🔥 CHECKOUT DEBUG: First item:', selectedItems[0])
-    console.log('🔥 CHECKOUT DEBUG: First item price:', selectedItems[0].price)
-    console.log('🔥 CHECKOUT DEBUG: First item storeLocation:', selectedItems[0].storeLocation)
+    console.log('CHECKOUT DEBUG: First item:', selectedItems[0])
+    console.log('CHECKOUT DEBUG: First item price:', selectedItems[0].price)
+    console.log('CHECKOUT DEBUG: First item storeLocation:', selectedItems[0].storeLocation)
   }
   
   // Calculate totals with proper number handling
   const total = selectedItems.reduce((sum, item) => {
     const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0
-    console.log(`🔥 CHECKOUT DEBUG: Item ${item.id} price: ${item.price} -> ${price}`)
+    console.log(`CHECKOUT DEBUG: Item ${item.id} price: ${item.price} -> ${price}`)
     return sum + price
   }, 0)
   
   const tax = Math.round(total * 0.08) // 8% tax
   const finalTotal = total + tax
   
-  console.log('🔥 CHECKOUT DEBUG: Calculated total:', total)
-  console.log('🔥 CHECKOUT DEBUG: Tax:', tax)
-  console.log('🔥 CHECKOUT DEBUG: Final total:', finalTotal)
+  console.log('CHECKOUT DEBUG: Calculated total:', total)
+  console.log('CHECKOUT DEBUG: Tax:', tax)
+  console.log('CHECKOUT DEBUG: Final total:', finalTotal)
 
   const handleCheckout = () => {
     // In a real app, this would handle checkout

@@ -71,19 +71,19 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const prevStep = () => dispatch({ type: 'PREV_STEP' })
   
   const updateFormData = (data: Partial<WizardState['formData']>) => {
-    console.log('🔥 WIZARD CONTEXT: updateFormData called with:', data)
-    console.log('🔥 WIZARD CONTEXT: selectedItems in update:', data.selectedItems?.length, 'items')
-    console.log('🔥 WIZARD CONTEXT: Current state before update:', state.formData.selectedItems?.length, 'items')
+    console.log('WIZARD CONTEXT: updateFormData called with:', data)
+    console.log('WIZARD CONTEXT: selectedItems in update:', data.selectedItems?.length, 'items')
+    console.log('WIZARD CONTEXT: Current state before update:', state.formData.selectedItems?.length, 'items')
     
     dispatch({ type: 'UPDATE_FORM_DATA', payload: data })
     
-    console.log('🔥 WIZARD CONTEXT: dispatch called, state will update asynchronously')
+    console.log('WIZARD CONTEXT: dispatch called, state will update asynchronously')
   }
   
   const resetWizard = () => dispatch({ type: 'RESET_WIZARD' })
 
   const clearRecommendationCache = () => {
-    console.log('🔄 WIZARD CONTEXT: Clearing recommendation cache')
+    console.log('WIZARD CONTEXT: Clearing recommendation cache')
     updateFormData({
       cachedRecommendations: undefined,
       userInteractions: {
@@ -159,8 +159,8 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     switch (step) {
       case 1:
         return state.formData.shoppingPrompt 
-          ? `✅ Step 1 Complete: Looking for "${state.formData.shoppingPrompt}"`
-          : '⏳ Step 1: Entering shopping prompt'
+          ? `Step 1 Complete: Looking for "${state.formData.shoppingPrompt}"`
+          : 'Step 1: Entering shopping prompt'
       case 2:
         const step2Items = []
         if (state.formData.gender) step2Items.push(`Gender: ${state.formData.gender}`)
@@ -169,26 +169,26 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (state.formData.preferredColors.length > 0) step2Items.push(`Colors: ${state.formData.preferredColors.join(', ')}`)
         
         return step2Items.length > 0 
-          ? `✅ Step 2 Complete: ${step2Items.join(' | ')}`
-          : '⏳ Step 2: Filling personal information'
+          ? `Step 2 Complete: ${step2Items.join(' | ')}`
+          : 'Step 2: Filling personal information'
       case 3:
         return state.formData.inspirationImages.length > 0 
-          ? `✅ Step 3 Complete: ${state.formData.inspirationImages.length} inspiration image${state.formData.inspirationImages.length > 1 ? 's' : ''} uploaded`
-          : '⏳ Step 3: Uploading inspiration images'
+          ? `Step 3 Complete: ${state.formData.inspirationImages.length} inspiration image${state.formData.inspirationImages.length > 1 ? 's' : ''} uploaded`
+          : 'Step 3: Uploading inspiration images'
       case 4:
         return state.formData.selfieImage 
-          ? '✅ Step 4 Complete: Selfie uploaded for virtual try-on'
-          : '⏳ Step 4: Selfie upload (optional)'
+          ? 'Step 4 Complete: Selfie uploaded for virtual try-on'
+          : 'Step 4: Selfie upload (optional)'
       case 5:
-        return '🤖 Step 5: AI analyzing your preferences and curating recommendations'
+        return 'Step 5: AI analyzing your preferences and curating recommendations'
       case 6:
         return state.formData.selectedItems.length > 0 
-          ? `✅ Step 6: ${state.formData.selectedItems.length} item${state.formData.selectedItems.length > 1 ? 's' : ''} selected from recommendations`
-          : '⏳ Step 6: Reviewing outfit recommendations'
+          ? `Step 6: ${state.formData.selectedItems.length} item${state.formData.selectedItems.length > 1 ? 's' : ''} selected from recommendations`
+          : 'Step 6: Reviewing outfit recommendations'
       case 7:
-        return '💳 Step 7: Reviewing checkout and purchase options'
+        return 'Step 7: Reviewing checkout and purchase options'
       case 8:
-        return '📋 Step 8: Final shopping summary and completion'
+        return 'Step 8: Final shopping summary and completion'
       default:
         return 'Unknown step'
     }

@@ -12,11 +12,11 @@ async def cookbook_approach_demo():
     """
     Demonstrate the OpenAI cookbook approach without heavy dependencies
     """
-    print("🎯 OpenAI Cookbook Approach Demo (Lightweight)")
+    print("OpenAI Cookbook Approach Demo (Lightweight)")
     print("=" * 50)
     
     # Step 1: Load sample data (same as cookbook)
-    print("📊 Loading sample styles data...")
+    print("Loading sample styles data...")
     products_data = []
     
     try:
@@ -24,13 +24,13 @@ async def cookbook_approach_demo():
             csv_reader = csv.DictReader(file)
             for row in csv_reader:
                 products_data.append(row)
-        print(f"✅ Loaded {len(products_data)} products")
+        print(f"Loaded {len(products_data)} products")
     except Exception as e:
-        print(f"❌ Error loading data: {e}")
+        print(f"Error loading data: {e}")
         return
     
     # Step 2: Generate embeddings (same as cookbook)
-    print("\n🔮 Generating embeddings...")
+    print("\nGenerating embeddings...")
     embedding_generator = EmbeddingGenerator()
     
     # Take first 10 products for demo (to avoid costs)
@@ -41,18 +41,18 @@ async def cookbook_approach_demo():
             sample_products,
             description_column=None  # Use rich descriptions
         )
-        print(f"✅ Generated embeddings for {len(products_with_embeddings)} products")
+        print(f"Generated embeddings for {len(products_with_embeddings)} products")
     except Exception as e:
-        print(f"❌ Error generating embeddings: {e}")
+        print(f"Error generating embeddings: {e}")
         return
     
     # Step 3: Initialize similarity service (replaces FAISS)
-    print("\n🔍 Initializing similarity search...")
+    print("\nInitializing similarity search...")
     similarity_service = LightweightSimilarityService()
     similarity_service.load_embeddings_data(products_with_embeddings)
     
     # Step 4: Demonstrate image analysis simulation
-    print("\n🖼️ Simulating image analysis (cookbook approach)...")
+    print("\nSimulating image analysis (cookbook approach)...")
     
     # This would normally come from GPT-4o mini image analysis
     simulated_analysis = {
@@ -61,10 +61,10 @@ async def cookbook_approach_demo():
         "gender": "Men"
     }
     
-    print(f"📝 Image analysis results: {simulated_analysis}")
+    print(f"Image analysis results: {simulated_analysis}")
     
     # Step 5: Filter data (same as cookbook)
-    print("\n🎯 Filtering products (cookbook approach)...")
+    print("\nFiltering products (cookbook approach)...")
     
     # Filter same gender or unisex, different category
     filtered_products = []
@@ -79,10 +79,10 @@ async def cookbook_approach_demo():
         if product_gender in [target_gender, 'unisex'] and product_category != exclude_category:
             filtered_products.append(product)
     
-    print(f"✅ {len(filtered_products)} products after filtering")
+    print(f"{len(filtered_products)} products after filtering")
     
     # Step 6: Find matching items using RAG (cookbook approach)
-    print("\n🎯 Finding matches using RAG...")
+    print("\nFinding matches using RAG...")
     
     if filtered_products:
         # Update similarity service with filtered data
@@ -97,10 +97,10 @@ async def cookbook_approach_demo():
             items_per_description=2
         )
         
-        print(f"✅ Found {len(matching_items)} matching items")
+        print(f"Found {len(matching_items)} matching items")
         
         # Display results (same as cookbook)
-        print("\n👔 Matching Items:")
+        print("\nMatching Items:")
         for i, item in enumerate(matching_items, 1):
             print(f"{i}. {item.get('productDisplayName', 'Unknown')}")
             print(f"   Category: {item.get('articleType', 'Unknown')}")
@@ -109,10 +109,10 @@ async def cookbook_approach_demo():
             print(f"   Matched: {item.get('matched_description', 'Unknown')}")
             print()
     else:
-        print("❌ No products available after filtering")
+        print("No products available after filtering")
     
-    print("🎉 Demo completed! This shows the exact cookbook approach without FAISS.")
-    print("\n💡 Key Points:")
+    print("Demo completed! This shows the exact cookbook approach without FAISS.")
+    print("\nKey Points:")
     print("   • Uses custom cosine similarity (same as cookbook)")
     print("   • Filters by gender/category (same as cookbook)")
     print("   • Generates embeddings on-demand (same as cookbook)")

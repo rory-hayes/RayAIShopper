@@ -70,9 +70,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     setIsLoading(true)
     try {
-      console.log('🤖 CHAT: Sending message:', content)
-      console.log('🤖 CHAT: Current context:', currentContext)
-      console.log('🤖 CHAT: Session ID:', sessionId)
+      console.log('CHAT: Sending message:', content)
+      console.log('CHAT: Current context:', currentContext)
+      console.log('CHAT: Session ID:', sessionId)
       
       // Send to backend chat endpoint with comprehensive context
       const response = await apiService.chat({
@@ -86,7 +86,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         session_id: sessionId || undefined
       })
 
-      console.log('🤖 CHAT: Received response:', response)
+      console.log('CHAT: Received response:', response)
 
       // Add assistant response - use 'message' field from backend
       const assistantMessage: ChatMessage = {
@@ -99,7 +99,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Update session ID if provided
       if (response.session_id && !sessionId) {
         setSessionId(response.session_id)
-        console.log('🤖 CHAT: Updated session ID:', response.session_id)
+        console.log('CHAT: Updated session ID:', response.session_id)
       }
 
     } catch (error) {
@@ -116,8 +116,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   }
 
   const updateContext = (context: any) => {
-    setCurrentContext(prev => ({ ...prev, ...context }))
-    console.log('🤖 CHAT: Context updated:', context)
+    setCurrentContext((prev: any) => ({ ...prev, ...context }))
+    console.log('CHAT: Context updated:', context)
   }
 
   const syncWithWizard = (wizardData: any) => {
@@ -177,7 +177,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       setLastWizardStep(currentStep)
     }
     
-    console.log('🤖 CHAT: Synced with wizard:', comprehensiveContext)
+    console.log('CHAT: Synced with wizard:', comprehensiveContext)
   }
 
   const getStepName = (step: number): string => {
@@ -229,7 +229,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     switch (toStep) {
       case 2:
         if (formData.shoppingPrompt) {
-          return `✅ Perfect! I understand you're looking for "${formData.shoppingPrompt}". Now let's learn about your personal style preferences.`
+          return `Perfect! I understand you're looking for "${formData.shoppingPrompt}". Now let's learn about your personal style preferences.`
         }
         break
       case 3:
@@ -239,27 +239,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         if (formData.preferredColors?.length > 0) prefs.push(`${formData.preferredColors.join(', ')} colors`)
         
         if (prefs.length > 0) {
-          return `✅ Great! I now know you're ${prefs.join(' with ')}. Let's add some visual inspiration to help me understand your aesthetic even better.`
+          return `Great! I now know you're ${prefs.join(' with ')}. Let's add some visual inspiration to help me understand your aesthetic even better.`
         }
         break
       case 4:
         if (formData.inspirationImages?.length > 0) {
-          return `✅ Excellent! Your ${formData.inspirationImages.length} inspiration image${formData.inspirationImages.length > 1 ? 's' : ''} will help me understand your exact style vision. Now you can optionally upload a selfie for virtual try-ons.`
+          return `Excellent! Your ${formData.inspirationImages.length} inspiration image${formData.inspirationImages.length > 1 ? 's' : ''} will help me understand your exact style vision. Now you can optionally upload a selfie for virtual try-ons.`
         } else {
-          return `✅ No problem skipping inspiration images - I have great info from your style preferences. You can optionally upload a selfie next for virtual try-ons.`
+          return `No problem skipping inspiration images - I have great info from your style preferences. You can optionally upload a selfie next for virtual try-ons.`
         }
         break
       case 5:
-        return `✅ Perfect! I'm now analyzing all your preferences${formData.selfieImage ? ' and your selfie' : ''} to curate the perfect recommendations for you.`
+        return `Perfect! I'm now analyzing all your preferences${formData.selfieImage ? ' and your selfie' : ''} to curate the perfect recommendations for you.`
       case 6:
-        return `🎉 I've found some amazing pieces that match your "${formData.shoppingPrompt}" request and your style preferences! Let me know what you think of these recommendations.`
+        return `I've found some amazing pieces that match your "${formData.shoppingPrompt}" request and your style preferences! Let me know what you think of these recommendations.`
       case 7:
         if (formData.selectedItems?.length > 0) {
-          return `✅ Wonderful! You've selected ${formData.selectedItems.length} item${formData.selectedItems.length > 1 ? 's' : ''} that perfectly match your style. Let's move toward checkout.`
+          return `Wonderful! You've selected ${formData.selectedItems.length} item${formData.selectedItems.length > 1 ? 's' : ''} that perfectly match your style. Let's move toward checkout.`
         }
         break
       case 8:
-        return `🛍️ Fantastic! Let's review your final shopping summary and complete your purchase.`
+        return `Fantastic! Let's review your final shopping summary and complete your purchase.`
     }
     return null
   }

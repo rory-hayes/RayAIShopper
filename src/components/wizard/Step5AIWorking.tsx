@@ -12,7 +12,7 @@ export const Step5AIWorking: React.FC = () => {
   useEffect(() => {
     // Skip if we already have recommendations or have already processed
     if (formData.selectedItems.length > 0 || hasProcessed) {
-      console.log('🔥 DEBUG: Skipping API call - already have recommendations or processed')
+      console.log('DEBUG: Skipping API call - already have recommendations or processed')
       setStatus('success')
       setTimeout(() => nextStep(), 1500)
       return
@@ -23,59 +23,58 @@ export const Step5AIWorking: React.FC = () => {
         setHasProcessed(true) // Mark as processed immediately to prevent double execution
         setStatus('processing')
 
-        console.log('🔥 DEBUG: Starting API call...')
+        console.log('DEBUG: Starting API call...')
 
         // Convert form data to API format
         const userProfile = convertToUserProfile(formData)
         console.log('User Profile:', userProfile)
-        console.log('🔥 STEP5 DEBUG: Detailed User Profile:')
+        console.log('STEP5 DEBUG: Detailed User Profile:')
         console.log('  - shopping_prompt:', userProfile.shopping_prompt)
         console.log('  - gender:', userProfile.gender)
         console.log('  - preferred_styles:', userProfile.preferred_styles)
         console.log('  - preferred_colors:', userProfile.preferred_colors)
-        console.log('  - size:', userProfile.size)
 
         // Prepare inspiration images with robust error handling
         let inspirationImages: string[] = []
         try {
           if (formData.inspirationImages && Array.isArray(formData.inspirationImages)) {
-            console.log('🔥 Processing inspiration images...', formData.inspirationImages.length, 'files')
+            console.log('Processing inspiration images...', formData.inspirationImages.length, 'files')
             
             // Filter and validate File objects first
             const validFiles = formData.inspirationImages.filter((file: any) => {
               if (file instanceof File) {
-                console.log(`✅ Valid file: ${file.name}, type: ${file.type}, size: ${file.size}`)
+                console.log(`Valid file: ${file.name}, type: ${file.type}, size: ${file.size}`)
                 return true
               } else {
-                console.warn(`❌ Skipping invalid file object:`, typeof file, file)
+                console.warn(`Skipping invalid file object:`, typeof file, file)
                 return false
               }
             })
             
             if (validFiles.length === 0) {
-              console.log('🔥 No valid image files found')
+              console.log('No valid image files found')
               inspirationImages = []
             } else {
               // Convert valid File objects to base64
               const imagePromises = validFiles.map(async (file: File, index: number) => {
                 try {
-                  console.log(`🔥 Converting file ${index + 1}:`, file.name, file.type, file.size)
+                  console.log(`Converting file ${index + 1}:`, file.name, file.type, file.size)
                   
                   return new Promise<string>((resolve, reject) => {
                     const reader = new FileReader()
                     reader.onload = () => {
                       const base64 = reader.result as string
-                      console.log(`🔥 Successfully converted file ${index + 1} to base64, length: ${base64.length}`)
+                      console.log(`Successfully converted file ${index + 1} to base64, length: ${base64.length}`)
                       resolve(base64)
                     }
                     reader.onerror = () => {
-                      console.error(`🔥 Error reading file ${index + 1}:`, reader.error)
+                      console.error(`Error reading file ${index + 1}:`, reader.error)
                       reject(reader.error)
                     }
                     reader.readAsDataURL(file)
                   })
                 } catch (error) {
-                  console.error(`🔥 Error processing file ${index + 1}:`, error)
+                  console.error(`Error processing file ${index + 1}:`, error)
                   return ''
                 }
               })
@@ -103,7 +102,7 @@ export const Step5AIWorking: React.FC = () => {
                       return ''
                     }
                     
-                    console.log(`✅ Processed base64 image, length: ${base64Data.length}`)
+                    console.log(` Processed base64 image, length: ${base64Data.length}`)
                     return base64Data
                   } catch (error) {
                     console.error('Error converting base64:', error)
@@ -112,11 +111,11 @@ export const Step5AIWorking: React.FC = () => {
                 })
                 .filter((img: string) => img !== '')
             }
-              
-            console.log('🔥 Final inspiration images count:', inspirationImages.length)
+            
+            console.log('Final inspiration images count:', inspirationImages.length)
             if (inspirationImages.length > 0) {
-              console.log('🔥 Sample base64 length:', inspirationImages[0]?.length || 0)
-              console.log('🔥 First few characters:', inspirationImages[0]?.substring(0, 50) || 'none')
+              console.log('Sample base64 length:', inspirationImages[0]?.length || 0)
+              console.log('First few characters:', inspirationImages[0]?.substring(0, 50) || 'none')
             }
           }
         } catch (error) {
@@ -139,7 +138,7 @@ export const Step5AIWorking: React.FC = () => {
         console.log('First recommendation:', response.recommendations?.[0])
         
         // DEBUGGING: Very obvious test to see if this code path is reached
-        console.log('🔥 CRITICAL DEBUG: API response received successfully, processing now...')
+        console.log('CRITICAL DEBUG: API response received successfully, processing now...')
 
         // Validate response structure
         if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
@@ -172,17 +171,17 @@ export const Step5AIWorking: React.FC = () => {
           
           updateFormData({ selectedItems })
           console.log('Successfully updated form data with real recommendations')
-          console.log('🔥 STEP5 DEBUG: selectedItems being saved:', selectedItems.length, 'items')
-          console.log('🔥 STEP5 DEBUG: First item being saved:', selectedItems[0])
+          console.log('STEP5 DEBUG: selectedItems being saved:', selectedItems.length, 'items')
+          console.log('STEP5 DEBUG: First item being saved:', selectedItems[0])
           
           // Add a small delay to ensure state update propagates
           setTimeout(() => {
-            console.log('🔥 STEP5 DEBUG: About to call nextStep after state update delay')
+            console.log('STEP5 DEBUG: About to call nextStep after state update delay')
             setStatus('success')
             
             // Move to next step after brief success display AND state propagation
             setTimeout(() => {
-              console.log('🔥 STEP5 DEBUG: Calling nextStep now')
+              console.log('STEP5 DEBUG: Calling nextStep now')
               nextStep()
             }, 1500)
           }, 100) // Small delay to ensure state update
@@ -211,7 +210,9 @@ export const Step5AIWorking: React.FC = () => {
                 image: 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400',
                 description: 'A timeless white button-down shirt',
                 inStock: true,
-                storeLocation: 'A1-B2'
+                storeLocation: 'A1-B2',
+                article_type: 'Shirt',
+                color: 'White'
               },
               {
                 id: 'fallback-2',
@@ -221,7 +222,9 @@ export const Step5AIWorking: React.FC = () => {
                 image: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=400',
                 description: 'Premium dark wash denim jeans',
                 inStock: true,
-                storeLocation: 'C3-D4'
+                storeLocation: 'C3-D4',
+                article_type: 'Jeans',
+                color: 'Dark Blue'
               }
             ]
           })
@@ -231,7 +234,7 @@ export const Step5AIWorking: React.FC = () => {
     }
 
     processRecommendations()
-  }, []) // Empty dependency array to run only once
+  }, [formData, nextStep, updateFormData, hasProcessed])
 
   const renderContent = () => {
     switch (status) {

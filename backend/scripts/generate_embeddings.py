@@ -19,6 +19,7 @@ import asyncio
 import pandas as pd
 import pickle
 from pathlib import Path
+import csv
 
 # Add the backend directory to the Python path
 backend_dir = Path(__file__).parent.parent
@@ -37,12 +38,27 @@ async def main():
     """
     Main function to generate embeddings and create FAISS index
     """
-    logger.info("🚀 Starting embedding generation process...")
+    logger.info("Starting embedding generation process...")
     
-    # Check if CSV file exists
-    if not os.path.exists(settings.styles_csv_path):
-        logger.error(f"Sample styles CSV not found at {settings.styles_csv_path}")
-        logger.info("Please ensure the data/sample_styles.csv file is present")
+    # Initialize services
+    embedding_generator = EmbeddingGenerator()
+    vector_service = VectorSearchService()
+    
+    # Load the CSV data
+    try:
+        products_data = []
+        with open(settings.styles_csv_path, 'r', encoding='utf-8') as file:
+            csv_reader = csv.DictReader(file)
+            for row in csv_reader:
+                products_data.append(row)
+                
+        logger.info(f"Loaded {len(products_data)} products from CSV")
+        
+    except FileNotFoundError:
+        logger.error(f"CSV file not found: {settings.styles_csv_path}")
+        return False
+    except Exception as e:
+        logger.error(f"Error loading CSV: {e}")
         return False
     
     try:
@@ -55,10 +71,7 @@ async def main():
         logger.info("Sample data:")
         logger.info(df.head().to_string())
         
-        # Step 2: Initialize embedding generator
-        embedding_generator = EmbeddingGenerator()
-        
-        # Step 3: Generate embeddings for all products
+        # Step 2: Generate embeddings for all products
         logger.info("Generating embeddings for all products...")
         df_with_embeddings = await embedding_generator.generate_embeddings_for_dataframe(df)
         
@@ -69,7 +82,6 @@ async def main():
         
         # Step 5: Create FAISS index
         logger.info("Creating FAISS index...")
-        vector_service = VectorSearchService()
         
         # Extract embeddings and metadata
         embeddings = df_with_embeddings['embeddings'].tolist()
@@ -96,8 +108,21 @@ async def main():
             for i, (item, score) in enumerate(results):
                 logger.info(f"  {i+1}. {item.name} (score: {score:.3f})")
             
-            logger.info("✅ Embedding generation completed successfully!")
+            logger.info("Embedding generation completed successfully!")
             logger.info(f"Created FAISS index with {vector_service.get_total_products()} products")
+            
+            logger.info(f"FAISS index saved to: {settings.faiss_index_path}")
+            logger.info(f"Product metadata saved to: {settings.products_metadata_path}")
+            
+            print("\nEmbedding generation completed successfully!")
+            print(f"Files created:")
+            print(f"   - FAISS index: {settings.faiss_index_path}")
+            print(f"   - Metadata: {settings.products_metadata_path}")
+            print(f"   - Embeddings CSV: {settings.embeddings_csv_path}")
+            print(f"   - Store map: {settings.store_location_path}")
+            print(f"\nYou can now start the API server with:")
+            print(f"   cd backend && python -m uvicorn app.main:app --reload")
+            
             return True
         else:
             logger.error("❌ Failed to load the created FAISS index")
@@ -147,11 +172,11 @@ if __name__ == "__main__":
         print("\n🎉 Embedding generation completed successfully!")
         print(f"📁 Files created:")
         print(f"   - FAISS index: {settings.faiss_index_path}")
-        print(f"   - Metadata: {settings.metadata_path}")
+        print(f"   - Metadata: {settings.products_metadata_path}")
         print(f"   - Embeddings CSV: {settings.embeddings_csv_path}")
         print(f"   - Store map: {settings.store_location_path}")
         print(f"\n🚀 You can now start the API server with:")
         print(f"   cd backend && python -m uvicorn app.main:app --reload")
     else:
-        print("\n❌ Embedding generation failed. Check the logs for details.")
+        print("\nEmbedding generation failed. Check the logs for details.")
         sys.exit(1) 
