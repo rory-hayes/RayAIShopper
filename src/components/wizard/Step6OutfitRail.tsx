@@ -311,6 +311,15 @@ export const Step6OutfitRail: React.FC = () => {
         type: 'info'
       })
     }
+
+    // Send feedback to backend
+    if (currentSessionId) {
+      apiService.sendFeedback({
+        product_id: itemId,
+        action: 'like',
+        session_id: currentSessionId,
+      }).catch(err => console.error('Feedback error:', err))
+    }
   }
 
   const toggleDislike = async (itemId: string) => {
@@ -319,6 +328,15 @@ export const Step6OutfitRail: React.FC = () => {
 
     if (!item.disliked) {
       console.log('DISLIKE: User disliked item:', item.name)
+
+      // Send feedback to backend
+      if (currentSessionId) {
+        apiService.sendFeedback({
+          product_id: itemId,
+          action: 'dislike',
+          session_id: currentSessionId,
+        }).catch(err => console.error('Feedback error:', err))
+      }
       
       // Start the removal animation
       setRemovingItems((prev: Set<string>) => new Set([...prev, itemId]))

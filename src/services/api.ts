@@ -78,8 +78,8 @@ export interface TryonResponse {
 
 export interface FeedbackRequest {
   product_id: string
-  feedback_type: 'like' | 'dislike'
-  user_profile: UserProfile
+  action: 'like' | 'dislike' | 'save'
+  session_id?: string
   reason?: string
 }
 

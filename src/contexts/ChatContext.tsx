@@ -155,7 +155,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       
       // Current recommendations
       current_recommendations: formData.selectedItems || [],
-      
+
+      // User interactions for likes/dislikes
+      user_interactions: formData.userInteractions || { liked: [], disliked: [], addedToCart: [] },
+
       // Session tracking
       session_id: sessionId || formData.sessionId || null
     }

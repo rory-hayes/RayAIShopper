@@ -420,6 +420,18 @@ Focus on actionable details that would help find similar clothing items."""
                     unique_colors = list(set([c for c in colors_in_recs if c]))
                     if unique_colors:
                         context_parts.append(f"Color palette in recommendations: {', '.join(unique_colors[:5])}")
+
+            # Add user interaction history for personalized advice
+            if "user_interactions" in context:
+                interactions = context["user_interactions"]
+                liked = interactions.get("liked", [])
+                disliked = interactions.get("disliked", [])
+                if liked or disliked:
+                    context_parts.append("User Feedback:")
+                if liked:
+                    context_parts.append(f"- Liked items: {', '.join(liked)}")
+                if disliked:
+                    context_parts.append(f"- Disliked items: {', '.join(disliked)}")
         
         # Add context information to messages if available
         if context_parts:

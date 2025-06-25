@@ -100,7 +100,13 @@ class RecommendationService:
                 "query_embedding": query_embedding,
                 "search_query": search_query,
                 "inspiration_analysis": inspiration_analysis,
-                "exclude_ids": exclude_ids
+                "exclude_ids": exclude_ids,
+                "current_recommendations": [item.dict() for item in final_recommendations],
+                "user_interactions": {
+                    "liked": [],
+                    "disliked": [],
+                    "saved": []
+                }
             }
             
             # Step 9: Create response
@@ -199,7 +205,7 @@ class RecommendationService:
         """
         try:
             logger.info(f"Processing feedback for session {session_id}: {action} on product {product_id}")
-            
+
             # Log feedback for analytics (in production, this would go to analytics service)
             feedback_data = {
                 "session_id": session_id,
@@ -208,6 +214,28 @@ class RecommendationService:
                 "reason": reason,
                 "timestamp": str(uuid.uuid4())  # Using UUID as timestamp placeholder
             }
+
+            # Update session cache with user interactions
+            session_data = self.session_cache.get(session_id)
+            if session_data is not None:
+                interactions = session_data.setdefault("user_interactions", {"liked": [], "disliked": [], "saved": []})
+                if action == "like":
+                    if product_id not in interactions["liked"]:
+                        interactions["liked"].append(product_id)
+                    if product_id in interactions["disliked"]:
+                        interactions["disliked"].remove(product_id)
+                elif action == "dislike":
+                    if product_id not in interactions["disliked"]:
+                        interactions["disliked"].append(product_id)
+                    if product_id in interactions["liked"]:
+                        interactions["liked"].remove(product_id)
+                    # Ensure disliked items are excluded from future results
+                    exclude = session_data.setdefault("exclude_ids", [])
+                    if product_id not in exclude:
+                        exclude.append(product_id)
+                elif action == "save":
+                    if product_id not in interactions["saved"]:
+                        interactions["saved"].append(product_id)
             
             response = {"success": True, "message": f"Feedback '{action}' recorded"}
             
