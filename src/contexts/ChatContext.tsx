@@ -73,16 +73,21 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       console.log('🤖 CHAT: Sending message:', content)
       console.log('🤖 CHAT: Current context:', currentContext)
       console.log('🤖 CHAT: Session ID:', sessionId)
-      
+
+      // Include the latest user message when building history
+      const history = [...messages, userMessage]
+        .slice(-10)
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp
+        }))
+
       // Send to backend chat endpoint with comprehensive context
       const response = await apiService.chat({
         message: content,
         context: currentContext,
-        history: messages.slice(-10).map(msg => ({ // Last 10 messages for context
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.timestamp
-        })),
+        history,
         session_id: sessionId || undefined
       })
 
