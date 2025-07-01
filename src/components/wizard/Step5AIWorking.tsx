@@ -1,130 +1,121 @@
-import React, { useEffect, useState } from 'react'
-import { useWizard } from '../../contexts/WizardContext'
-import { apiService, convertToUserProfile, convertFromBase64 } from '../../services/api'
+import React, { useState, useEffect } from 'react'
 import { Sparkles, AlertCircle } from 'lucide-react'
+import { useWizard } from '../../contexts/WizardContext'
+import { convertToUserProfile, apiService } from '../../services/api'
+import { stepLogger } from '../../utils/logger'
 
 export const Step5AIWorking: React.FC = () => {
-  const { formData, nextStep, updateFormData } = useWizard()
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing')
-  const [errorMessage, setErrorMessage] = useState<string>('')
+  const { formData, updateFormData, nextStep } = useWizard()
+  const [status, setStatus] = useState<'processing' | 'success' | 'ready' | 'error' | 'fallback'>('processing')
+  const [errorMessage, setErrorMessage] = useState('')
   const [hasProcessed, setHasProcessed] = useState(false)
 
   useEffect(() => {
-    // Skip if we already have recommendations or have already processed
-    if (formData.selectedItems.length > 0 || hasProcessed) {
-      console.log('DEBUG: Skipping API call - already have recommendations or processed')
-      setStatus('success')
-      setTimeout(() => nextStep(), 1500)
+    if (hasProcessed) {
+      stepLogger.debug('STEP5', 'Skipping API call - already processed')
+      return
+    }
+
+    if (formData.selectedItems && formData.selectedItems.length > 0 && formData.hasLoadedRecommendations) {
+      stepLogger.debug('STEP5', 'Skipping API call - already have recommendations')
       return
     }
 
     const processRecommendations = async () => {
+      setHasProcessed(true)
+      
       try {
-        setHasProcessed(true) // Mark as processed immediately to prevent double execution
-        setStatus('processing')
-
-        console.log('DEBUG: Starting API call...')
-
-        // Convert form data to API format
+        stepLogger.info('STEP5', 'Starting API call')
+        
         const userProfile = convertToUserProfile(formData)
-        console.log('User Profile:', userProfile)
-        console.log('STEP5 DEBUG: Detailed User Profile:')
-        console.log('  - shopping_prompt:', userProfile.shopping_prompt)
-        console.log('  - gender:', userProfile.gender)
-        console.log('  - preferred_styles:', userProfile.preferred_styles)
-        console.log('  - preferred_colors:', userProfile.preferred_colors)
+        stepLogger.debug('STEP5', 'User Profile created', userProfile)
 
-        // Prepare inspiration images with robust error handling
-        let inspirationImages: string[] = []
-        try {
-          if (formData.inspirationImages && Array.isArray(formData.inspirationImages)) {
-            console.log('Processing inspiration images...', formData.inspirationImages.length, 'files')
-            
-            // Filter and validate File objects first
-            const validFiles = formData.inspirationImages.filter((file: any) => {
-              if (file instanceof File) {
-                console.log(`Valid file: ${file.name}, type: ${file.type}, size: ${file.size}`)
-                return true
-              } else {
-                console.warn(`Skipping invalid file object:`, typeof file, file)
-                return false
-              }
-            })
-            
-            if (validFiles.length === 0) {
-              console.log('No valid image files found')
-              inspirationImages = []
+        // Process inspiration images
+        const inspirationImages: string[] = []
+        
+        if (formData.inspirationImages && formData.inspirationImages.length > 0) {
+          stepLogger.info('STEP5', `Processing ${formData.inspirationImages.length} inspiration images`)
+          
+          for (const [index, file] of formData.inspirationImages.entries()) {
+            if (file && typeof file === 'object' && file.constructor === File) {
+              stepLogger.debug('STEP5', `Valid file: ${file.name}, type: ${file.type}, size: ${file.size}`)
             } else {
-              // Convert valid File objects to base64
-              const imagePromises = validFiles.map(async (file: File, index: number) => {
-                try {
-                  console.log(`Converting file ${index + 1}:`, file.name, file.type, file.size)
-                  
-                  return new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader()
-                    reader.onload = () => {
-                      const base64 = reader.result as string
-                      console.log(`Successfully converted file ${index + 1} to base64, length: ${base64.length}`)
-                      resolve(base64)
-                    }
-                    reader.onerror = () => {
-                      console.error(`Error reading file ${index + 1}:`, reader.error)
-                      reject(reader.error)
-                    }
-                    reader.readAsDataURL(file)
-                  })
-                } catch (error) {
-                  console.error(`Error processing file ${index + 1}:`, error)
-                  return ''
-                }
-              })
-              
-              // Wait for all images to be converted
-              const base64Images = await Promise.all(imagePromises)
-              
-              // Filter out empty results and convert to API format
-              inspirationImages = base64Images
-                .filter((base64: string) => base64 && base64.trim() !== '')
-                .map((base64: string) => {
-                  try {
-                    // Validate base64 format
-                    if (!base64.startsWith('data:image/')) {
-                      console.error('Invalid base64 format - missing data:image/ prefix')
-                      return ''
-                    }
-                    
-                    // Remove data:image/[type];base64, prefix for API
-                    const base64Data = base64.replace(/^data:image\/[a-z]+;base64,/, '')
-                    
-                    // Validate the cleaned base64
-                    if (base64Data.length === 0) {
-                      console.error('Empty base64 data after cleaning')
-                      return ''
-                    }
-                    
-                    console.log(` Processed base64 image, length: ${base64Data.length}`)
-                    return base64Data
-                  } catch (error) {
-                    console.error('Error converting base64:', error)
-                    return ''
-                  }
-                })
-                .filter((img: string) => img !== '')
-            }
-            
-            console.log('Final inspiration images count:', inspirationImages.length)
-            if (inspirationImages.length > 0) {
-              console.log('Sample base64 length:', inspirationImages[0]?.length || 0)
-              console.log('First few characters:', inspirationImages[0]?.substring(0, 50) || 'none')
+              stepLogger.warn('STEP5', `Skipping invalid file object:`, typeof file, file)
+              continue
             }
           }
-        } catch (error) {
-          console.error('Error processing inspiration images:', error)
-          inspirationImages = []
+          
+          if (inspirationImages.length === 0) {
+            stepLogger.info('STEP5', 'No valid image files found')
+          }
+
+          // Convert images to base64
+          for (const [index, file] of formData.inspirationImages.entries()) {
+            if (!(file instanceof File)) continue
+            
+            try {
+              stepLogger.debug('STEP5', `Converting file ${index + 1}:`, file.name, file.type, file.size)
+              
+              const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = () => {
+                  const result = reader.result as string
+                  stepLogger.debug('STEP5', `Successfully converted file ${index + 1} to base64, length: ${result.length}`)
+                  resolve(result)
+                }
+                reader.onerror = () => {
+                  stepLogger.error('STEP5', `Error reading file ${index + 1}:`, reader.error)
+                  reject(reader.error)
+                }
+                reader.readAsDataURL(file)
+              })
+              
+              // Process the base64 string
+              try {
+                if (!base64.startsWith('data:image/')) {
+                  stepLogger.error('STEP5', 'Invalid base64 format - missing data:image/ prefix')
+                  continue
+                }
+
+                // Extract just the base64 data (remove data:image/jpeg;base64, prefix)
+                const base64Data = base64.split(',')[1]
+                
+                if (!base64Data) {
+                  stepLogger.error('STEP5', 'Empty base64 data after cleaning')
+                  continue
+                }
+
+                stepLogger.debug('STEP5', `Processed base64 image, length: ${base64Data.length}`)
+                inspirationImages.push(base64Data)
+                
+              } catch (error) {
+                stepLogger.error('STEP5', 'Error converting base64:', error)
+                continue
+              }
+              
+            } catch (error) {
+              stepLogger.error('STEP5', `Error processing file ${index + 1}:`, error)
+              continue
+            }
+          }
+        } else {
+          stepLogger.info('STEP5', 'No inspiration images provided')
         }
         
-        console.log('Inspiration Images Count:', inspirationImages.length)
-        console.log('Form Data:', formData)
+        stepLogger.info('STEP5', 'Final inspiration images count:', inspirationImages.length)
+        if (inspirationImages.length > 0) {
+          stepLogger.debug('STEP5', 'Sample base64 length:', inspirationImages[0]?.length || 0)
+          stepLogger.debug('STEP5', 'First few characters:', inspirationImages[0]?.substring(0, 50) || 'none')
+        }
+
+        // Continue with API call
+        stepLogger.info('STEP5', 'Inspiration Images Count:', inspirationImages.length)
+        stepLogger.debug('STEP5', 'Form Data summary', { 
+          hasShoppingPrompt: !!formData.shoppingPrompt,
+          gender: formData.gender,
+          stylesCount: formData.preferredStyles?.length || 0,
+          colorsCount: formData.preferredColors?.length || 0
+        })
 
         // Call the backend API
         const response = await apiService.getRecommendations({
@@ -133,13 +124,11 @@ export const Step5AIWorking: React.FC = () => {
           exclude_ids: [] // No exclusions on first request
         })
         
-        console.log('API Response:', response)
-        console.log('Response recommendations count:', response.recommendations?.length)
-        console.log('First recommendation:', response.recommendations?.[0])
+        stepLogger.info('STEP5', 'API Response received', {
+          recommendationsCount: response.recommendations?.length,
+          sessionId: response.session_id
+        })
         
-        // DEBUGGING: Very obvious test to see if this code path is reached
-        console.log('CRITICAL DEBUG: API response received successfully, processing now...')
-
         // Validate response structure
         if (!response || !response.recommendations || !Array.isArray(response.recommendations)) {
           throw new Error('Invalid response structure from backend')
@@ -149,92 +138,67 @@ export const Step5AIWorking: React.FC = () => {
           throw new Error('No recommendations returned from backend')
         }
 
-        // Update form data with real recommendations - keep all 20 items for rotation
-        try {
-          const selectedItems = response.recommendations.map((item, index) => {
-            console.log(`Processing item ${index}:`, item)
-            return {
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              price: Math.floor(Math.random() * 200) + 50, // Mock price for now
-              image: item.image_url,
-              description: `${item.article_type} in ${item.color}`,
-              inStock: true,
-              storeLocation: item.store_location || 'A1-B2',
-              similarity_score: item.similarity_score,
-              article_type: item.article_type,
-              color: item.color,
-              usage: item.usage
-            }
-          })
-          
-          updateFormData({ selectedItems })
-          console.log('Successfully updated form data with real recommendations')
-          console.log('STEP5 DEBUG: selectedItems being saved:', selectedItems.length, 'items')
-          console.log('STEP5 DEBUG: First item being saved:', selectedItems[0])
-          
-          // Add a small delay to ensure state update propagates
-          setTimeout(() => {
-            console.log('STEP5 DEBUG: About to call nextStep after state update delay')
-            setStatus('success')
-            
-            // Move to next step after brief success display AND state propagation
-            setTimeout(() => {
-              console.log('STEP5 DEBUG: Calling nextStep now')
-              nextStep()
-            }, 1500)
-          }, 100) // Small delay to ensure state update
-
-        } catch (mappingError) {
-          console.error('Error mapping recommendations:', mappingError)
-          throw new Error(`Failed to process recommendations: ${mappingError}`)
-        }
+        // Update form data with real recommendations - keep all for rotation but don't auto-advance
+        const selectedItems = response.recommendations.map((item: any, index: number) => {
+          stepLogger.debug('STEP5', `Processing item ${index}:`, item.name)
+          return {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            price: Math.floor(Math.random() * 200) + 50, // Mock price for now
+            image: item.image_url,
+            description: `${item.article_type} in ${item.color}`,
+            inStock: true,
+            storeLocation: item.store_location || 'A1-B2',
+            similarity_score: item.similarity_score,
+            article_type: item.article_type,
+            color: item.color,
+            usage: item.usage
+          }
+        })
+        
+        updateFormData({ 
+          selectedItems,
+          sessionId: response.session_id,
+          hasLoadedRecommendations: true 
+        })
+        
+        stepLogger.info('STEP5', 'Successfully updated form data', {
+          itemsCount: selectedItems.length,
+          sessionId: response.session_id
+        })
+        
+        setStatus('success')
+        
+        // Show success message for 2 seconds, then show "Continue" button
+        setTimeout(() => {
+          setStatus('ready')
+        }, 2000)
 
       } catch (error) {
-        console.error('Error fetching recommendations:', error)
+        stepLogger.error('STEP5', 'Failed to fetch recommendations:', error)
         setStatus('error')
         setErrorMessage(error instanceof Error ? error.message : 'Failed to get recommendations')
         
-        // Fallback to mock data after 5 seconds
+        // Show error, then offer to continue with fallback
         setTimeout(() => {
-          console.log('Using fallback mock data after API timeout/error')
-          // Use mock data as fallback
-          updateFormData({
-            selectedItems: [
-              {
-                id: 'fallback-1',
-                name: 'Classic White Shirt',
-                category: 'Topwear',
-                price: 89,
-                image: 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400',
-                description: 'A timeless white button-down shirt',
-                inStock: true,
-                storeLocation: 'A1-B2',
-                article_type: 'Shirt',
-                color: 'White'
-              },
-              {
-                id: 'fallback-2',
-                name: 'Dark Denim Jeans',
-                category: 'Bottomwear',
-                price: 129,
-                image: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=400',
-                description: 'Premium dark wash denim jeans',
-                inStock: true,
-                storeLocation: 'C3-D4',
-                article_type: 'Jeans',
-                color: 'Dark Blue'
-              }
-            ]
-          })
-          nextStep()
-        }, 5000)
+          setStatus('fallback')
+        }, 3000)
       }
     }
 
     processRecommendations()
-  }, [formData, nextStep, updateFormData, hasProcessed])
+  }, [formData, updateFormData, hasProcessed])
+
+  const handleContinue = () => {
+    nextStep()
+  }
+
+  const handleRetry = () => {
+    setHasProcessed(false)
+    setStatus('processing')
+    setErrorMessage('')
+  }
 
   const renderContent = () => {
     switch (status) {
@@ -285,6 +249,30 @@ export const Step5AIWorking: React.FC = () => {
           </>
         )
 
+      case 'ready':
+        return (
+          <>
+            <div className="mb-8">
+              <Sparkles className="h-16 w-16 text-green-600 mx-auto" />
+            </div>
+
+            <h1 className="text-3xl font-light text-gray-900 mb-4">
+              Your curated look is ready!
+            </h1>
+            
+            <p className="text-gray-600 mb-8">
+              Ray has found {formData.selectedItems?.length || 0} amazing pieces just for you. Ready to see them?
+            </p>
+
+            <button
+              onClick={handleContinue}
+              className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+            >
+              View My Recommendations
+            </button>
+          </>
+        )
+
       case 'error':
         return (
           <>
@@ -301,16 +289,73 @@ export const Step5AIWorking: React.FC = () => {
             </p>
             
             <p className="text-sm text-gray-500 mb-8">
-              Don't worry! We'll show you some great options while we reconnect.
+              Don't worry! We'll try again or show you some great options.
             </p>
 
-            <div className="flex justify-center">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={handleRetry}
+                className="bg-gray-900 hover:bg-gray-800 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                Try Again
+              </button>
             </div>
+          </>
+        )
+
+      case 'fallback':
+        return (
+          <>
+            <div className="mb-8">
+              <Sparkles className="h-16 w-16 text-blue-600 mx-auto" />
+            </div>
+
+            <h1 className="text-3xl font-light text-gray-900 mb-4">
+              We'll use some great backup recommendations
+            </h1>
+            
+            <p className="text-gray-600 mb-8">
+              While we fix the connection, here are some excellent items for you.
+            </p>
+
+            <button
+              onClick={() => {
+                // Set fallback recommendations and continue
+                updateFormData({
+                  selectedItems: [
+                    {
+                      id: 'fallback-1',
+                      name: 'Classic White Shirt',
+                      category: 'Topwear',
+                      price: 89,
+                      image: 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400',
+                      description: 'A timeless white button-down shirt',
+                      inStock: true,
+                      storeLocation: 'A1-B2',
+                      article_type: 'Shirt',
+                      color: 'White'
+                    },
+                    {
+                      id: 'fallback-2',
+                      name: 'Dark Denim Jeans',
+                      category: 'Bottomwear',
+                      price: 129,
+                      image: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=400',
+                      description: 'Premium dark wash denim jeans',
+                      inStock: true,
+                      storeLocation: 'C3-D4',
+                      article_type: 'Jeans',
+                      color: 'Dark Blue'
+                    }
+                  ],
+                  hasLoadedRecommendations: true
+                })
+                handleContinue()
+              }}
+              className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-lg font-medium transition-colors"
+            >
+              View Backup Recommendations
+            </button>
           </>
         )
     }

@@ -237,20 +237,29 @@ export const ChatAssistant: React.FC = () => {
 
           {/* Input */}
           <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex gap-2">
-              <input
-                type="text"
+            <div className="flex gap-2 items-end">
+              <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about colors, styling, fit, accessories..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm bg-white"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm bg-white resize-none overflow-hidden min-h-[40px] max-h-[120px]"
                 disabled={isLoading}
+                rows={1}
+                style={{
+                  height: 'auto',
+                  minHeight: '40px'
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement
+                  target.style.height = 'auto'
+                  target.style.height = Math.min(target.scrollHeight, 120) + 'px'
+                }}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isLoading}
-                className="bg-gray-900 text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-gray-900 text-white p-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               >
                 <Send className="h-4 w-4" />
               </button>

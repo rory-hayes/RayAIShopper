@@ -9,24 +9,30 @@ import { Step6OutfitRail } from './Step6OutfitRail'
 import { Step7Checkout } from './Step7Checkout'
 import { Step8Summary } from './Step8Summary'
 
-const steps = [
-  Step1Welcome,
-  Step2AboutYou,
-  Step3UploadInspiration,
-  Step4UploadSelfie,
-  Step5AIWorking,
-  Step6OutfitRail,
-  Step7Checkout,
-  Step8Summary
-]
-
 export const WizardContainer: React.FC = () => {
-  const { currentStep } = useWizard()
+  const { currentStep, nextStep } = useWizard()
   
-  const CurrentStepComponent = steps[currentStep - 1]
-  
-  if (!CurrentStepComponent) {
-    return <div>Step not found</div>
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return <Step1Welcome />
+      case 2:
+        return <Step2AboutYou />
+      case 3:
+        return <Step3UploadInspiration />
+      case 4:
+        return <Step4UploadSelfie />
+      case 5:
+        return <Step5AIWorking />
+      case 6:
+        return <Step6OutfitRail onNext={nextStep} />
+      case 7:
+        return <Step7Checkout />
+      case 8:
+        return <Step8Summary />
+      default:
+        return <div>Step not found</div>
+    }
   }
 
   return (
@@ -41,7 +47,7 @@ export const WizardContainer: React.FC = () => {
       
       {/* Step content */}
       <div className="transition-all duration-300">
-        <CurrentStepComponent />
+        {renderStep()}
       </div>
     </div>
   )
