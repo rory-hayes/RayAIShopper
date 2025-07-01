@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Clock, Sparkles, RotateCcw, ShoppingBag, X, Eye, RefreshCw, Heart, Check, Loader2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Clock, Sparkles, RotateCcw, ShoppingBag, X, Eye, RefreshCw, Heart, Check, Loader2, ChevronRight, ChevronLeft, ThumbsDown } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useWizard } from '../../contexts/WizardContext'
 import { useChatContext } from '../../contexts/ChatContext'
@@ -442,169 +442,154 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
   }
 
     return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-3 rounded-full">
-              <Sparkles className="h-8 w-8 text-white" />
-            </div>
+    <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-3 rounded-full">
+            <Sparkles className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-4xl font-light text-gray-900 mb-4">Your Personalized Recommendations</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Based on your style preferences, here are items curated just for you. Select the ones you'd like to add to your cart.
-          </p>
         </div>
+        <h1 className="text-3xl font-light text-gray-900 mb-4">Your Personalized Recommendations</h1>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Based on your style preferences, here are items curated just for you. Select the ones you'd like to add to your cart.
+        </p>
+      </div>
 
-        {/* Items Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {displayedItems.map((item) => (
-            <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300">
-              <div className="relative group">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                  className="w-full h-64 object-cover"
+      {/* Items List - Compact Cards like Checkout */}
+      <div className="space-y-4 mb-8">
+        {displayedItems.map((item) => (
+          <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow duration-200">
+            <div className="flex gap-4">
+              <div className="relative">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-16 h-16 object-cover rounded-lg"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
+                  }}
                 />
                 
-                {/* Action Overlay */}
-                <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleTryOn(item.id)}
-                    className="bg-white text-gray-900 hover:bg-gray-100"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Try On
-                  </Button>
-
-        <Button
-          variant="secondary"
-                    size="sm"
-                    onClick={() => handleFeedback(item, 'like')}
-                    className={`transition-colors ${
-                      likedItems.has(item.id) 
-                        ? 'bg-red-500 text-white hover:bg-red-600' 
-                        : 'bg-white text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Heart className={`h-4 w-4 mr-2 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
-                    {likedItems.has(item.id) ? 'Liked' : 'Like'}
-        </Button>
-      </div>
-
                 {/* Loading overlay for item being replaced */}
                 {isReplacingItem === item.id && (
-                  <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
-                    <div className="text-center">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-gray-600" />
-                      <p className="text-sm text-gray-600">Finding new item...</p>
-        </div>
-      </div>
+                  <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                  </div>
                 )}
 
                 {/* Selection indicator */}
                 {selectedItems.has(item.id) && (
-                  <div className="absolute top-4 right-4 bg-green-500 text-white p-2 rounded-full">
-                    <Check className="h-4 w-4" />
-        </div>
-      )}
+                  <div className="absolute -top-1 -right-1 bg-green-500 text-white p-1 rounded-full">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
               </div>
               
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-medium text-gray-900">{item.name}</h3>
-                  <span className="text-xl font-semibold text-gray-900">${item.price}</span>
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-medium text-gray-900">{item.name}</h3>
+                  <span className="font-medium text-gray-900">${item.price}</span>
                 </div>
-                
-                <p className="text-gray-600 mb-4 line-clamp-2">{item.description}</p>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                <p className="text-sm text-gray-600 mb-2 line-clamp-2">{item.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                     {item.category}
                   </span>
-                  <span className="text-sm text-gray-500">{item.storeLocation}</span>
+                  <span className="text-xs text-gray-500">{item.storeLocation}</span>
                 </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => handleDislike(item)}
-                    variant="secondary"
-                    size="sm"
-                    disabled={isReplacingItem === item.id}
-                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                  >
-                    {isReplacingItem === item.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Replacing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Replace
-                      </>
-                    )}
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleSelectItem(item.id)}
-                    size="sm"
-                    className={`flex-1 transition-colors ${
-                      selectedItems.has(item.id)
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-gray-900 hover:bg-gray-800 text-white'
-                    }`}
-                  >
-                    <ShoppingBag className="h-4 w-4 mr-2" />
-                    {selectedItems.has(item.id) ? 'Selected' : 'Select'}
-                  </Button>
-                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-2 mt-4">
+              {/* Thumbs Up */}
+              <button
+                onClick={() => handleFeedback(item, 'like')}
+                className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
+                  likedItems.has(item.id) 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Heart className={`h-4 w-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
+              </button>
+
+              {/* Thumbs Down / Replace */}
+              <button
+                onClick={() => handleDislike(item)}
+                disabled={isReplacingItem === item.id}
+                className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {isReplacingItem === item.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ThumbsDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Try On */}
+              <button
+                onClick={() => handleTryOn(item.id)}
+                className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              
+              {/* Add to Cart */}
+              <button
+                onClick={() => handleSelectItem(item.id)}
+                className={`flex-1 flex items-center justify-center py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  selectedItems.has(item.id)
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
+              >
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                {selectedItems.has(item.id) ? 'Added' : 'Add to Cart'}
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      {/* Actions */}
+      <div className="flex flex-col gap-4">
         <Button
-            onClick={handleMoreOptions}
+          onClick={handleMoreOptions}
           variant="secondary"
-            size="lg"
-            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+          fullWidth
+          className="border-gray-300 text-gray-700 hover:bg-gray-50"
         >
-            <RefreshCw className="h-5 w-5 mr-2" />
-            More Options
+          <RefreshCw className="h-5 w-5 mr-2" />
+          More Options
         </Button>
-          
+        
         <Button
-            onClick={handleNext}
-            size="lg"
-            disabled={selectedItems.size === 0}
-            className="bg-gray-900 hover:bg-gray-800 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Continue to Checkout ({selectedItems.size} items)
-            <ChevronRight className="ml-2 h-5 w-5" />
+          onClick={handleNext}
+          fullWidth
+          size="lg"
+          disabled={selectedItems.size === 0}
+          className="bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Continue to Checkout ({selectedItems.size} items)
+          <ChevronRight className="ml-2 h-5 w-5" />
         </Button>
-        </div>
-
-        {/* Virtual Try-On Modal */}
-        {showTryOnModal && tryOnData && (
-          <VirtualTryOnModal
-            isOpen={showTryOnModal}
-            onClose={() => {
-              setShowTryOnModal(false)
-              setTryOnData(null)
-            }}
-            productId={tryOnData.item.id}
-            productName={tryOnData.item.name}
-            productImage={tryOnData.item.image}
-            userSelfie={tryOnData.selfieBase64}
-          />
-        )}
       </div>
+
+      {/* Virtual Try-On Modal */}
+      {showTryOnModal && tryOnData && (
+        <VirtualTryOnModal
+          isOpen={showTryOnModal}
+          onClose={() => {
+            setShowTryOnModal(false)
+            setTryOnData(null)
+          }}
+          productId={tryOnData.item.id}
+          productName={tryOnData.item.name}
+          productImage={tryOnData.item.image}
+          userSelfie={tryOnData.selfieBase64}
+        />
+      )}
     </div>
   )
 }
