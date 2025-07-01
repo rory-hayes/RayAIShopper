@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { useChatContext } from '../../contexts/ChatContext'
 import { Button } from '../ui/Button'
 import { Toast } from '../ui/Toast'
-import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X, RefreshCw, Heart, Sparkles, Check, Loader2 } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, ShoppingCart, Eye, MapPin, ShoppingBag, X, RefreshCw, Heart, Sparkles, Check, Loader2, ChevronRight, ChevronLeft } from 'lucide-react'
 import { ClothingItem, RecommendationItem } from '../../types'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
 import { convertToUserProfile, convertFromBase64, apiService } from '../../services/api'
+import { stepLogger } from '../../utils/logger'
 
 const mockClothingItems: ClothingItem[] = [
   {
@@ -76,25 +77,25 @@ export const Step6OutfitRail: React.FC = () => {
 
   // Determine data source: cached recommendations first, then selectedItems, then mock
   const getInitialRecommendations = (): ClothingItem[] => {
-    console.log('CONTEXT: Determining data source for recommendations')
-    console.log('CONTEXT: cachedRecommendations:', formData.cachedRecommendations?.length || 0)
-    console.log('CONTEXT: selectedItems:', formData.selectedItems?.length || 0)
-    console.log('CONTEXT: hasLoadedRecommendations:', formData.hasLoadedRecommendations)
+    stepLogger.debug('STEP6', 'Determining data source for recommendations')
+    stepLogger.debug('STEP6', 'cachedRecommendations:', formData.cachedRecommendations?.length || 0)
+    stepLogger.debug('STEP6', 'selectedItems:', formData.selectedItems?.length || 0)
+    stepLogger.debug('STEP6', 'hasLoadedRecommendations:', formData.hasLoadedRecommendations)
 
     // First priority: Use cached recommendations with preserved interactions
     if (formData.cachedRecommendations && formData.cachedRecommendations.length > 0) {
-      console.log('CONTEXT: Using cached recommendations')
+      stepLogger.info('STEP6', 'Using cached recommendations')
       return convertToClothingItems(formData.cachedRecommendations, formData.userInteractions)
     }
     
     // Second priority: Use selectedItems (fresh API data)
     if (formData.selectedItems && formData.selectedItems.length > 0) {
-      console.log('CONTEXT: Using selectedItems (fresh API data)')
+      stepLogger.info('STEP6', 'Using selectedItems (fresh API data)')
       return convertToClothingItems(formData.selectedItems, formData.userInteractions)
     }
     
     // Fallback: Use mock data
-    console.log('WARNING: Falling back to mock data')
+    stepLogger.info('STEP6', 'Using fallback mock data')
     return mockClothingItems
   }
 
@@ -176,13 +177,13 @@ export const Step6OutfitRail: React.FC = () => {
 
   // Smart item replacement - rotate from available pool first, then API call if needed
   const replaceItem = async (removedItemId: string): Promise<boolean> => {
-    console.log('REPLACE: Attempting to replace item:', removedItemId)
-    console.log('REPLACE: Available for rotation:', availableForRotation.length)
+    stepLogger.info('STEP6', 'Attempting to replace item:', removedItemId)
+    stepLogger.info('STEP6', 'Available for rotation:', availableForRotation.length)
     
     // First, try to replace from available pool
     if (availableForRotation.length > 0) {
       const newItem = availableForRotation[0]
-      console.log('ROTATE: Replacing with item from pool:', newItem.name)
+      stepLogger.info('STEP6', 'ROTATE: Replacing with item from pool:', newItem.name)
       
       // Update displayed items
       setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? newItem.id : id))
@@ -196,11 +197,11 @@ export const Step6OutfitRail: React.FC = () => {
     }
     
     // If no items available in pool, make API call for fresh items
-    console.log('API: No items left in pool, fetching fresh recommendations...')
+    stepLogger.info('STEP6', 'API: No items left in pool, fetching fresh recommendations...')
     const apiSuccess = await fetchFreshItem(removedItemId)
     
     if (!apiSuccess) {
-      console.log('WARNING: Both rotation and API failed, checking for any non-displayed items')
+      stepLogger.info('STEP6', 'WARNING: Both rotation and API failed, checking for any non-displayed items')
       
       // Last resort: check if there are any non-disliked items not currently displayed
       const allNonDislikedItems = allItems.filter(item => !item.disliked)
@@ -208,7 +209,7 @@ export const Step6OutfitRail: React.FC = () => {
       
       if (nonDisplayedItems.length > 0) {
         const fallbackItem = nonDisplayedItems[0]
-        console.log('FALLBACK: Using non-displayed item:', fallbackItem.name)
+        stepLogger.info('STEP6', 'FALLBACK: Using non-displayed item:', fallbackItem.name)
         
         setDisplayedItemIds(prev => prev.map(id => id === removedItemId ? fallbackItem.id : id))
         
@@ -228,7 +229,7 @@ export const Step6OutfitRail: React.FC = () => {
   const fetchFreshItem = async (removedItemId: string): Promise<boolean> => {
     try {
       if (!currentSessionId) {
-        console.error('REFRESH: No session ID available')
+        stepLogger.error('STEP6', 'REFRESH: No session ID available')
         setToast({
           message: 'Please wait for recommendations to load first',
           type: 'error'
@@ -246,7 +247,7 @@ export const Step6OutfitRail: React.FC = () => {
       const freshItems = Array.isArray(freshItemsResponse) ? freshItemsResponse : []
       
       if (freshItems.length === 0) {
-        console.warn('WARNING: No fresh items available')
+        stepLogger.warn('STEP6', 'WARNING: No fresh items available')
         setToast({
           message: 'No more new recommendations available',
           type: 'info'
@@ -280,7 +281,7 @@ export const Step6OutfitRail: React.FC = () => {
 
       return true
     } catch (error) {
-      console.error('REFRESH: Failed to get fresh items:', error)
+      stepLogger.error('STEP6', 'REFRESH: Failed to get fresh items:', error)
       setToast({
         message: 'Failed to load new recommendations',
         type: 'error'
@@ -318,7 +319,7 @@ export const Step6OutfitRail: React.FC = () => {
         product_id: itemId,
         action: 'like',
         session_id: currentSessionId,
-      }).catch(err => console.error('Feedback error:', err))
+      }).catch(err => stepLogger.error('STEP6', 'Feedback error:', err))
     }
   }
 
@@ -327,7 +328,7 @@ export const Step6OutfitRail: React.FC = () => {
     if (!item) return
 
     if (!item.disliked) {
-      console.log('DISLIKE: User disliked item:', item.name)
+      stepLogger.info('STEP6', 'DISLIKE: User disliked item:', item.name)
 
       // Send feedback to backend
       if (currentSessionId) {
@@ -335,7 +336,7 @@ export const Step6OutfitRail: React.FC = () => {
           product_id: itemId,
           action: 'dislike',
           session_id: currentSessionId,
-        }).catch(err => console.error('Feedback error:', err))
+        }).catch(err => stepLogger.error('STEP6', 'Feedback error:', err))
       }
       
       // Start the removal animation
@@ -362,7 +363,7 @@ export const Step6OutfitRail: React.FC = () => {
           ))
         } else {
           // If replacement failed, just reset the item state (don't mark as disliked)
-          console.log('WARNING: Replacement failed, keeping item visible')
+          stepLogger.info('STEP6', 'WARNING: Replacement failed, keeping item visible')
           setToast({
             message: 'Unable to find replacement. Item will remain visible.',
             type: 'info'
@@ -407,20 +408,20 @@ export const Step6OutfitRail: React.FC = () => {
   }
 
   const handleTryOn = (itemId: string) => {
-    console.log('TRYON: handleTryOn called for itemId:', itemId)
+    stepLogger.info('STEP6', 'TRYON: handleTryOn called for itemId:', itemId)
     
     const item = allItems.find((i: ClothingItem) => i.id === itemId)
     if (!item) {
-      console.log('WARNING: Item not found for id:', itemId)
+      stepLogger.error('STEP6', 'WARNING: Item not found for id:', itemId)
       return
     }
 
-    console.log('TRYON: Found item:', item.name)
-    console.log('TRYON: Checking selfie - formData.selfieImage:', !!formData.selfieImage)
+    stepLogger.info('STEP6', 'TRYON: Found item:', item.name)
+    stepLogger.info('STEP6', 'TRYON: Checking selfie - formData.selfieImage:', !!formData.selfieImage)
 
     // Check if user has a selfie
     if (!formData.selfieImage) {
-      console.log('WARNING: No selfie found, showing toast')
+      stepLogger.error('STEP6', 'WARNING: No selfie found, showing toast')
       setToast({
         message: 'Please upload a selfie in Step 4 to use virtual try-on',
         type: 'info'
@@ -428,7 +429,7 @@ export const Step6OutfitRail: React.FC = () => {
       return
     }
 
-    console.log('TRYON: Selfie found, starting FileReader...')
+    stepLogger.info('STEP6', 'TRYON: Selfie found, starting FileReader...')
 
     // Convert selfie to base64 string
     const reader = new FileReader()
@@ -436,8 +437,8 @@ export const Step6OutfitRail: React.FC = () => {
       const base64String = reader.result as string
       const base64Data = convertFromBase64(base64String)
       
-      console.log('TRYON: Setting up try-on data for item:', item.name)
-      console.log('TRYON: Base64 data length:', base64Data.length)
+      stepLogger.info('STEP6', 'TRYON: Setting up try-on data for item:', item.name)
+      stepLogger.info('STEP6', 'TRYON: Base64 data length:', base64Data.length)
       
       // Set the try-on data and show modal
       setTryOnData({
@@ -448,7 +449,7 @@ export const Step6OutfitRail: React.FC = () => {
       })
       setShowTryOn(itemId)
       
-      console.log('TRYON: Modal state set, should show now')
+      stepLogger.info('STEP6', 'TRYON: Modal state set, should show now')
     }
     reader.readAsDataURL(formData.selfieImage)
   }
@@ -480,9 +481,9 @@ export const Step6OutfitRail: React.FC = () => {
       usage: 'Unknown' // We lost this info in conversion, could be improved
     }))
     
-    console.log('STEP6 DEBUG: selectedClothingItems:', selectedClothingItems)
-    console.log('STEP6 DEBUG: converted selectedItems:', selectedItems)
-    console.log('STEP6 DEBUG: First converted item:', selectedItems[0])
+    stepLogger.debug('STEP6', 'selectedClothingItems:', selectedClothingItems)
+    stepLogger.debug('STEP6', 'converted selectedItems:', selectedItems)
+    stepLogger.debug('STEP6', 'First converted item:', selectedItems[0])
     
     updateFormData({ selectedItems })
     nextStep()
@@ -503,6 +504,7 @@ export const Step6OutfitRail: React.FC = () => {
       const itemsToAdd = availableForRotation.slice(0, itemsNeeded)
       
       if (itemsToAdd.length > 0) {
+        stepLogger.info('STEP6', `AUTO-FILL: Adding ${itemsToAdd.length} items to maintain display count`)
         console.log(`AUTO-FILL: Adding ${itemsToAdd.length} items to maintain display count`)
         setDisplayedItemIds(prev => [...prev, ...itemsToAdd.map(item => item.id)])
       }

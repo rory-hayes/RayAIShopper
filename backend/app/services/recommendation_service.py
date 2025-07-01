@@ -1,4 +1,5 @@
 import uuid
+import time
 from typing import List, Dict, Any, Optional
 from app.services.vector_service import VectorSearchService
 from app.services.openai_service import OpenAIService
@@ -13,7 +14,10 @@ class RecommendationService:
     def __init__(self):
         self.vector_service = VectorSearchService()
         self.openai_service = OpenAIService()
-        self.session_cache: Dict[str, Dict] = {}  # In-memory session storage
+        self.session_cache: Dict[str, Dict] = {}  # In-memory session storage with TTL
+        self.session_ttl = 3600  # 1 hour TTL for sessions
+        self.last_cleanup = time.time()
+        self.cleanup_interval = 300  # Cleanup every 5 minutes
         
     async def initialize(self) -> bool:
         """
@@ -27,6 +31,52 @@ class RecommendationService:
             logger.error("Failed to initialize recommendation service")
         return success
     
+    def _cleanup_expired_sessions(self) -> None:
+        """
+        Remove expired sessions from cache to prevent memory leaks
+        """
+        current_time = time.time()
+        
+        # Only cleanup if interval has passed
+        if current_time - self.last_cleanup < self.cleanup_interval:
+            return
+            
+        expired_sessions = []
+        for session_id, session_data in self.session_cache.items():
+            session_time = session_data.get('created_at', 0)
+            if current_time - session_time > self.session_ttl:
+                expired_sessions.append(session_id)
+        
+        # Remove expired sessions
+        for session_id in expired_sessions:
+            del self.session_cache[session_id]
+            
+        if expired_sessions:
+            logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
+            
+        self.last_cleanup = current_time
+    
+    def _store_session_data(self, session_id: str, data: Dict[str, Any]) -> None:
+        """
+        Store session data with timestamp for TTL cleanup
+        """
+        self._cleanup_expired_sessions()  # Cleanup before storing
+        
+        data['created_at'] = time.time()
+        data['last_accessed'] = time.time()
+        self.session_cache[session_id] = data
+    
+    def _get_session_data(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get session data and update last accessed time
+        """
+        self._cleanup_expired_sessions()  # Cleanup before accessing
+        
+        if session_id in self.session_cache:
+            self.session_cache[session_id]['last_accessed'] = time.time()
+            return self.session_cache[session_id]
+        return None
+
     async def get_recommendations(self, request: RecommendationRequest) -> RecommendationResponse:
         """
         Get personalized recommendations following the cookbook's RAG approach:
@@ -65,37 +115,30 @@ class RecommendationService:
             if request.filters and request.filters.exclude_ids:
                 exclude_ids = request.filters.exclude_ids
             
-            # Search for more items than needed to allow for filtering and GPT ranking
             search_results = await self.vector_service.similarity_search(
                 query_embedding=query_embedding,
-                k=min(request.top_k * 2, settings.max_search_results),
+                k=request.top_k * 2,  # Get more results for better filtering
                 exclude_ids=exclude_ids,
                 search_query=search_query,
-                gender_filter=user_profile.gender.value,
-                article_type_filter=user_profile.preferred_article_types if user_profile.preferred_article_types else None
+                gender_filter=user_profile.gender,
+                article_type_filter=user_profile.preferred_article_types
             )
             
-            # Extract products from search results
-            candidate_products = [item for item, _ in search_results]
+            # Step 6: Extract product items from search results
+            product_items = [result[0] for result in search_results]
             
-            # Step 6: Apply additional filters if specified
-            if request.filters:
-                candidate_products = self._apply_filters(candidate_products, request.filters)
+            # Step 7: Enhance recommendations with GPT-4o mini for better ranking
+            final_recommendations = await self.openai_service.enhance_recommendations(
+                user_profile=user_profile,
+                recommendations=product_items,
+                inspiration_analysis=inspiration_analysis
+            )
             
-            # Step 7: Enhance ranking with GPT-4o mini
-            if len(candidate_products) > request.top_k:
-                enhanced_products = await self.openai_service.enhance_recommendations(
-                    user_profile=user_profile,
-                    recommendations=candidate_products,
-                    inspiration_analysis=inspiration_analysis
-                )
-                # Take top-k after GPT ranking
-                final_recommendations = enhanced_products[:request.top_k]
-            else:
-                final_recommendations = candidate_products
+            # Limit to requested number
+            final_recommendations = final_recommendations[:request.top_k]
             
-            # Step 8: Cache session data for future requests
-            self.session_cache[session_id] = {
+            # Step 8: Cache session data for future requests (with TTL)
+            session_data = {
                 "user_profile": user_profile.dict(),
                 "query_embedding": query_embedding,
                 "search_query": search_query,
@@ -108,6 +151,7 @@ class RecommendationService:
                     "saved": []
                 }
             }
+            self._store_session_data(session_id, session_data)
             
             # Step 9: Create response
             response = RecommendationResponse(
@@ -123,33 +167,7 @@ class RecommendationService:
         except Exception as e:
             logger.error(f"Error generating recommendations: {e}")
             raise
-    
-    def _apply_filters(self, products: List[ProductItem], filters: FilterOptions) -> List[ProductItem]:
-        """
-        Apply additional filters to the product list
-        """
-        filtered_products = products
-        
-        # Filter by categories
-        if filters.categories:
-            filtered_products = [
-                p for p in filtered_products 
-                if p.category in filters.categories or p.article_type in filters.categories
-            ]
-        
-        # Filter by colors
-        if filters.colors:
-            filtered_products = [
-                p for p in filtered_products 
-                if any(color.lower() in p.color.lower() for color in filters.colors)
-            ]
-        
-        # Note: Price filtering would require price data in the product catalog
-        # For now, we skip price filtering since it's not in our sample data
-        
-        logger.info(f"Applied filters, {len(filtered_products)} products remaining")
-        return filtered_products
-    
+
     async def get_fresh_recommendations(
         self, 
         session_id: str, 
@@ -162,7 +180,7 @@ class RecommendationService:
         """
         try:
             # Get session data
-            session_data = self.session_cache.get(session_id)
+            session_data = self._get_session_data(session_id)
             if not session_data:
                 raise ValueError(f"Session {session_id} not found")
             
@@ -184,6 +202,7 @@ class RecommendationService:
             
             # Update session cache with new excludes
             session_data["exclude_ids"] = all_exclude_ids
+            self._store_session_data(session_id, session_data)
             
             logger.info(f"Generated {len(fresh_items)} fresh recommendations for session {session_id}")
             return fresh_items
@@ -191,7 +210,7 @@ class RecommendationService:
         except Exception as e:
             logger.error(f"Error getting fresh recommendations: {e}")
             raise
-    
+
     async def process_feedback(
         self, 
         session_id: str, 
@@ -216,7 +235,7 @@ class RecommendationService:
             }
 
             # Update session cache with user interactions
-            session_data = self.session_cache.get(session_id)
+            session_data = self._get_session_data(session_id)
             if session_data is not None:
                 interactions = session_data.setdefault("user_interactions", {"liked": [], "disliked": [], "saved": []})
                 if action == "like":
@@ -236,6 +255,9 @@ class RecommendationService:
                 elif action == "save":
                     if product_id not in interactions["saved"]:
                         interactions["saved"].append(product_id)
+                
+                # Update session data with new interactions
+                self._store_session_data(session_id, session_data)
             
             response = {"success": True, "message": f"Feedback '{action}' recorded"}
             
@@ -261,15 +283,18 @@ class RecommendationService:
         """
         Get session context for chat functionality
         """
-        return self.session_cache.get(session_id)
+        return self._get_session_data(session_id)
     
     def get_service_status(self) -> Dict[str, Any]:
         """
         Get service status for health checks
         """
+        self._cleanup_expired_sessions()  # Cleanup before reporting status
+        
         return {
             "vector_store_loaded": self.vector_service.index is not None,
             "fallback_mode": self.vector_service.is_fallback_mode(),
             "total_products": self.vector_service.get_total_products(),
-            "active_sessions": len(self.session_cache)
+            "active_sessions": len(self.session_cache),
+            "session_ttl_hours": self.session_ttl / 3600
         } 

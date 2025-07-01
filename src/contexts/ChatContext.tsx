@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiService } from '../services/api'
+import { chatLogger } from '../utils/logger'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -55,11 +56,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     setMessages([welcomeMessage])
   }, [])
 
-  const addMessage = (message: ChatMessage) => {
+  const addMessage = useCallback((message: ChatMessage) => {
     setMessages(prev => [...prev, message])
-  }
+  }, [])
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = useCallback(async (content: string) => {
     // Add user message immediately
     const userMessage: ChatMessage = {
       role: 'user',
@@ -70,9 +71,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     setIsLoading(true)
     try {
-      console.log('CHAT: Sending message:', content)
-      console.log('CHAT: Current context:', currentContext)
-      console.log('CHAT: Session ID:', sessionId)
+      chatLogger.debug('Sending message', { content, sessionId })
       
       // Send to backend chat endpoint with comprehensive context
       const response = await apiService.chat({
@@ -86,7 +85,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         session_id: sessionId || undefined
       })
 
-      console.log('CHAT: Received response:', response)
+      chatLogger.debug('Received response', { hasResponse: !!response })
 
       // Add assistant response - use 'message' field from backend
       const assistantMessage: ChatMessage = {
@@ -99,11 +98,11 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       // Update session ID if provided
       if (response.session_id && !sessionId) {
         setSessionId(response.session_id)
-        console.log('CHAT: Updated session ID:', response.session_id)
+        chatLogger.debug('Updated session ID', { sessionId: response.session_id })
       }
 
     } catch (error) {
-      console.error('Chat error:', error)
+      chatLogger.error('Chat error', error)
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
@@ -113,14 +112,14 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [addMessage, currentContext, messages, sessionId])
 
-  const updateContext = (context: any) => {
+  const updateContext = useCallback((context: any) => {
     setCurrentContext((prev: any) => ({ ...prev, ...context }))
-    console.log('CHAT: Context updated:', context)
-  }
+    chatLogger.debug('Context updated', { keys: Object.keys(context) })
+  }, [])
 
-  const syncWithWizard = (wizardData: any) => {
+  const syncWithWizard = useCallback((wizardData: any) => {
     const { formData, currentStep } = wizardData
     
     // Build comprehensive context from wizard data
@@ -180,8 +179,12 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       setLastWizardStep(currentStep)
     }
     
-    console.log('CHAT: Synced with wizard:', comprehensiveContext)
-  }
+    chatLogger.debug('Synced with wizard', { 
+      currentStep, 
+      hasRecommendations: !!formData.selectedItems?.length,
+      sessionId: sessionId || formData.sessionId
+    })
+  }, [sessionId, lastWizardStep, hasAddedStepMessage])
 
   const getStepName = (step: number): string => {
     const stepNames = [
@@ -267,17 +270,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     return null
   }
 
-  const openChat = () => setIsOpen(true)
-  const closeChat = () => setIsOpen(false)
+  const openChat = useCallback(() => setIsOpen(true), [])
+  const closeChat = useCallback(() => setIsOpen(false), [])
 
-  const addSystemUpdate = (update: string) => {
+  const addSystemUpdate = useCallback((update: string) => {
     const systemMessage: ChatMessage = {
       role: 'assistant',
       content: update,
       timestamp: new Date().toISOString()
     }
     addMessage(systemMessage)
-  }
+  }, [addMessage])
 
   return (
     <ChatContext.Provider value={{

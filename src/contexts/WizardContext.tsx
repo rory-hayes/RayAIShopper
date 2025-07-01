@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react'
 import { WizardState, UserContext, RecommendationItem } from '../types'
+import { wizardLogger } from '../utils/logger'
 
 interface WizardContextType extends WizardState {
   nextStep: () => void
@@ -71,19 +72,21 @@ export const WizardProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const prevStep = () => dispatch({ type: 'PREV_STEP' })
   
   const updateFormData = (data: Partial<WizardState['formData']>) => {
-    console.log('WIZARD CONTEXT: updateFormData called with:', data)
-    console.log('WIZARD CONTEXT: selectedItems in update:', data.selectedItems?.length, 'items')
-    console.log('WIZARD CONTEXT: Current state before update:', state.formData.selectedItems?.length, 'items')
+    wizardLogger.debug('updateFormData called', {
+      keys: Object.keys(data),
+      selectedItemsCount: data.selectedItems?.length,
+      currentSelectedItemsCount: state.formData.selectedItems?.length
+    })
     
     dispatch({ type: 'UPDATE_FORM_DATA', payload: data })
     
-    console.log('WIZARD CONTEXT: dispatch called, state will update asynchronously')
+    wizardLogger.debug('dispatch called, state will update asynchronously')
   }
   
   const resetWizard = () => dispatch({ type: 'RESET_WIZARD' })
 
   const clearRecommendationCache = () => {
-    console.log('WIZARD CONTEXT: Clearing recommendation cache')
+    wizardLogger.info('Clearing recommendation cache')
     updateFormData({
       cachedRecommendations: undefined,
       userInteractions: {

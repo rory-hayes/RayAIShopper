@@ -2,7 +2,7 @@
 export const APP_CONFIG = {
   // Set to true to show "Under Construction" page
   // Set to false to allow normal access to the application
-  UNDER_CONSTRUCTION: true,
+  UNDER_CONSTRUCTION: false,
   
   // Demo mode settings
   DEMO_MODE: false,
