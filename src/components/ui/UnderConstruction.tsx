@@ -1,5 +1,5 @@
 import React from 'react'
-import { Settings, Lock, Calendar } from 'lucide-react'
+import { Settings, Lock } from 'lucide-react'
 
 export const UnderConstruction: React.FC = () => {
   return (
@@ -23,16 +23,6 @@ export const UnderConstruction: React.FC = () => {
           </div>
           
           <h2 className="text-xl font-medium text-gray-900 mb-3">Under Construction</h2>
-          <p className="text-gray-600 leading-relaxed mb-4">
-            We're putting the finishing touches on your personalized shopping experience. 
-            Our AI fashion assistant is learning the latest trends and preparing to help you 
-            discover your perfect style.
-          </p>
-          
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-            <Calendar className="h-4 w-4" />
-            <span>Coming Soon</span>
-          </div>
         </div>
 
         {/* Security Notice */}
@@ -46,11 +36,6 @@ export const UnderConstruction: React.FC = () => {
         {/* Footer */}
         <div className="mt-8 text-xs text-gray-400">
           © 2025 Ray AI Shopper. All rights reserved.
-        </div>
-        
-        {/* Development Hint - Very subtle */}
-        <div className="mt-4 text-xs text-gray-300 opacity-50">
-          Dev: Add ?admin=ray_admin_2025 to URL for access
         </div>
       </div>
     </div>
