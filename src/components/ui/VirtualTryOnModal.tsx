@@ -3,6 +3,7 @@ import { X, Download, Share, RotateCcw, Sparkles } from 'lucide-react'
 import { Button } from './Button'
 import { virtualTryOn, EnhancedTryonRequest, EnhancedTryonResponse } from '../../services/api'
 import { useWizard } from '../../contexts/WizardContext'
+import { stepLogger } from '../../utils/logger'
 
 interface VirtualTryOnModalProps {
   isOpen: boolean
@@ -109,20 +110,20 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
       // Create enhanced style prompt with user context
       const enhancedStylePrompt = createEnhancedStylePrompt()
       
+      stepLogger.info('TRYON', 'Starting enhanced virtual try-on generation...')
+      stepLogger.debug('TRYON', 'Enhanced style prompt:', enhancedStylePrompt)
+      
       const request: EnhancedTryonRequest = {
         product_id: productId,
         user_image: userSelfie,
         style_prompt: enhancedStylePrompt
       }
 
-      console.log('TRYON: Starting enhanced virtual try-on generation...')
-      console.log('TRYON: Enhanced style prompt:', enhancedStylePrompt)
-      
       const result = await virtualTryOn(request)
       
       setProgress(100)
       setTryOnResult(result)
-      console.log('TRYON: Successfully generated enhanced virtual try-on')
+      stepLogger.info('TRYON', 'Successfully generated enhanced virtual try-on')
       
     } catch (err) {
       console.error('TRYON: Generation failed:', err)
@@ -156,7 +157,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
           url: tryOnResult.generated_image_url
         })
       } catch (err) {
-        console.log('Share cancelled or failed')
+        stepLogger.info('TRYON', 'Share cancelled or failed')
       }
     }
   }
@@ -280,7 +281,7 @@ export const VirtualTryOnModal: React.FC<VirtualTryOnModalProps> = ({
                   Save
                 </Button>
                 
-                {navigator.share && (
+                {navigator.share && typeof navigator.share === 'function' && (
                   <Button onClick={handleShare} variant="secondary" className="flex-1">
                     <Share className="h-4 w-4 mr-2" />
                     Share

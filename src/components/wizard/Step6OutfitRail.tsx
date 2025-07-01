@@ -167,7 +167,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           color: item.color || 'Multi',
           usage: item.usage || 'General'
         }))
-      } else {
+    } else {
         stepLogger.error('STEP6', 'No fresh items available from API')
         return []
       }
@@ -441,7 +441,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     )
   }
 
-  return (
+    return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -462,9 +462,9 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           {displayedItems.map((item) => (
             <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300">
               <div className="relative group">
-                <img 
-                  src={item.image} 
-                  alt={item.name}
+                  <img
+                    src={item.image}
+                    alt={item.name}
                   className="w-full h-64 object-cover"
                 />
                 
@@ -479,9 +479,9 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                     <Eye className="h-4 w-4 mr-2" />
                     Try On
                   </Button>
-                  
-                  <Button
-                    variant="secondary"
+
+        <Button
+          variant="secondary"
                     size="sm"
                     onClick={() => handleFeedback(item, 'like')}
                     className={`transition-colors ${
@@ -492,8 +492,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                   >
                     <Heart className={`h-4 w-4 mr-2 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
                     {likedItems.has(item.id) ? 'Liked' : 'Like'}
-                  </Button>
-                </div>
+        </Button>
+      </div>
 
                 {/* Loading overlay for item being replaced */}
                 {isReplacingItem === item.id && (
@@ -501,16 +501,16 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                     <div className="text-center">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-gray-600" />
                       <p className="text-sm text-gray-600">Finding new item...</p>
-                    </div>
-                  </div>
+        </div>
+      </div>
                 )}
 
                 {/* Selection indicator */}
                 {selectedItems.has(item.id) && (
                   <div className="absolute top-4 right-4 bg-green-500 text-white p-2 rounded-full">
                     <Check className="h-4 w-4" />
-                  </div>
-                )}
+        </div>
+      )}
               </div>
               
               <div className="p-6">
@@ -562,24 +562,24 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                     {selectedItems.has(item.id) ? 'Selected' : 'Select'}
                   </Button>
                 </div>
-              </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Button
+        <Button
             onClick={handleMoreOptions}
-            variant="secondary"
+          variant="secondary"
             size="lg"
             className="border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
+        >
             <RefreshCw className="h-5 w-5 mr-2" />
             More Options
-          </Button>
+        </Button>
           
-          <Button
+        <Button
             onClick={handleNext}
             size="lg"
             disabled={selectedItems.size === 0}
@@ -587,7 +587,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           >
             Continue to Checkout ({selectedItems.size} items)
             <ChevronRight className="ml-2 h-5 w-5" />
-          </Button>
+        </Button>
         </div>
 
         {/* Virtual Try-On Modal */}

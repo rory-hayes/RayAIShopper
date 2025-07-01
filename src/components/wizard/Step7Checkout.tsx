@@ -1,13 +1,16 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { StoreMapModal } from '../ui/StoreMapModal'
 import { MapPin, ShoppingBag, CreditCard, Store } from 'lucide-react'
+import { stepLogger } from '../../utils/logger'
 
 export const Step7Checkout: React.FC = () => {
   const { formData, resetWizard, prevStep } = useWizard()
   const [activeTab, setActiveTab] = useState<'checkout' | 'store'>('store')
   const [showStoreMap, setShowStoreMap] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'store' | 'online'>('store')
   
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
@@ -16,28 +19,29 @@ export const Step7Checkout: React.FC = () => {
   // Use real selected items from formData
   const selectedItems = formData.selectedItems || []
   
-  // Debug logging
-  console.log('CHECKOUT DEBUG: selectedItems:', selectedItems)
-  console.log('CHECKOUT DEBUG: selectedItems length:', selectedItems.length)
+  stepLogger.debug('CHECKOUT', 'selectedItems:', selectedItems)
+  stepLogger.debug('CHECKOUT', 'selectedItems length:', selectedItems.length)
+  
   if (selectedItems.length > 0) {
-    console.log('CHECKOUT DEBUG: First item:', selectedItems[0])
-    console.log('CHECKOUT DEBUG: First item price:', selectedItems[0].price)
-    console.log('CHECKOUT DEBUG: First item storeLocation:', selectedItems[0].storeLocation)
+    stepLogger.debug('CHECKOUT', 'First item:', selectedItems[0])
+    stepLogger.debug('CHECKOUT', 'First item price:', selectedItems[0].price)
+    stepLogger.debug('CHECKOUT', 'First item storeLocation:', selectedItems[0].storeLocation)
   }
   
   // Calculate totals with proper number handling
-  const total = selectedItems.reduce((sum, item) => {
+  const subtotal = selectedItems.reduce((acc, item) => {
     const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0
-    console.log(`CHECKOUT DEBUG: Item ${item.id} price: ${item.price} -> ${price}`)
-    return sum + price
+    stepLogger.debug('CHECKOUT', `Item ${item.id} price: ${item.price} -> ${price}`)
+    return acc + price
   }, 0)
   
-  const tax = Math.round(total * 0.08) // 8% tax
-  const finalTotal = total + tax
+  const total = Math.round(subtotal * 100) / 100 // Round to 2 decimal places
+  const tax = Math.round(total * 0.08 * 100) / 100 // 8% tax
+  const finalTotal = Math.round((total + tax) * 100) / 100
   
-  console.log('CHECKOUT DEBUG: Calculated total:', total)
-  console.log('CHECKOUT DEBUG: Tax:', tax)
-  console.log('CHECKOUT DEBUG: Final total:', finalTotal)
+  stepLogger.debug('CHECKOUT', 'Calculated total:', total)
+  stepLogger.debug('CHECKOUT', 'Tax:', tax)
+  stepLogger.debug('CHECKOUT', 'Final total:', finalTotal)
 
   const handleCheckout = () => {
     // In a real app, this would handle checkout
@@ -219,7 +223,7 @@ export const Step7Checkout: React.FC = () => {
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900">€{total}</span>
+              <span className="text-gray-900">€{subtotal}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax</span>

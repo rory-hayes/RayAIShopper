@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
 import { useChatContext } from '../../contexts/ChatContext'
 import { useWizard } from '../../contexts/WizardContext'
+import { chatLogger } from '../../utils/logger'
 
 export const ChatAssistant: React.FC = () => {
   const { 
@@ -26,7 +27,7 @@ export const ChatAssistant: React.FC = () => {
   // Sync with wizard data when component mounts or when we reach Step 6
   useEffect(() => {
     if (shouldShowChat && !hasInitialized) {
-      console.log('CHAT: Initializing with full wizard context at Step 6')
+      chatLogger.info('Initializing with full wizard context at Step 6')
       syncWithWizard({ formData, currentStep })
       setShowNotification(true) // Show notification badge
       setHasInitialized(true)
