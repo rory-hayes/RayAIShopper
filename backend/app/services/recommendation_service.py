@@ -410,6 +410,7 @@ class RecommendationService:
     async def get_recommendations_v2(self, request: RecommendationRequest) -> RecommendationResponseV2:
         """
         V2 API that guarantees category structure and clear error handling
+        Simplified version to avoid timeouts
         """
         start_time = time.time()
         
@@ -437,46 +438,73 @@ class RecommendationService:
                 )
             )
             
-            # Prepare shared search parameters
-            user_profile = request.user_profile
+            # Simplified approach: Use basic search without complex OpenAI calls
             exclude_ids = []
             if request.filters and request.filters.exclude_ids:
                 exclude_ids = request.filters.exclude_ids
             
-            # Generate query embedding once for all searches
-            search_query = await self.openai_service.create_search_query_from_profile(
-                user_profile=user_profile,
-                inspiration_analysis=None  # V2 focuses on reliability first
-            )
-            query_embedding = await self.openai_service.get_query_embedding(search_query)
+            # Create simple search query from user profile (no OpenAI call)
+            search_terms = []
+            search_terms.append(request.user_profile.shopping_prompt)
+            if request.user_profile.preferred_styles:
+                search_terms.extend(request.user_profile.preferred_styles)
+            if request.user_profile.preferred_colors:
+                search_terms.extend(request.user_profile.preferred_colors)
             
-            # Search each category individually
+            simple_query = " ".join(search_terms)
+            logger.info(f"V2 API: Using simplified search query: {simple_query}")
+            
+            # Search each category individually with simplified approach
             for category in user_categories:
                 category_start = time.time()
                 
-                items = await self._search_single_category(
-                    category=category,
-                    request=request,
-                    query_embedding=query_embedding,
-                    search_query=search_query,
-                    exclude_ids=exclude_ids
-                )
-                
-                category_time = int((time.time() - category_start) * 1000)
-                
-                result.categories[category] = CategoryResult(
-                    items=items,
-                    total_available=len(items),
-                    requested_count=request.items_per_category or 20,
-                    search_time_ms=category_time
-                )
-                
-                if items:
-                    result.debug_info.categories_found.append(category)
-                    logger.info(f"V2 API: Found {len(items)} items for category '{category}'")
-                else:
+                try:
+                    # Map user-friendly category to database article types
+                    db_article_types = self._map_article_type(category)
+                    logger.info(f"V2 API: Searching category '{category}' -> database types {db_article_types}")
+                    
+                    # Use simple keyword search instead of embedding search to avoid timeouts
+                    search_results = await self.vector_service.similarity_search(
+                        query=simple_query,  # Use simple string query instead of embedding
+                        k=request.items_per_category or 20,
+                        exclude_ids=exclude_ids,
+                        search_query=simple_query,
+                        gender_filter=request.user_profile.gender,
+                        article_type_filter=db_article_types
+                    )
+                    
+                    # Extract product items (simplified - no enhancement)
+                    category_items = [result[0] if isinstance(result, tuple) else result for result in search_results]
+                    
+                    # Limit to requested count
+                    final_items = category_items[:request.items_per_category or 20]
+                    
+                    category_time = int((time.time() - category_start) * 1000)
+                    
+                    result.categories[category] = CategoryResult(
+                        items=final_items,
+                        total_available=len(final_items),
+                        requested_count=request.items_per_category or 20,
+                        search_time_ms=category_time
+                    )
+                    
+                    if final_items:
+                        result.debug_info.categories_found.append(category)
+                        logger.info(f"V2 API: Found {len(final_items)} items for category '{category}' in {category_time}ms")
+                    else:
+                        result.debug_info.categories_missing.append(category)
+                        logger.warning(f"V2 API: No items found for category '{category}'")
+                        
+                except Exception as category_error:
+                    logger.error(f"V2 API: Error searching category '{category}': {category_error}")
+                    # Still add empty category to maintain structure
+                    result.categories[category] = CategoryResult(
+                        items=[],
+                        total_available=0,
+                        requested_count=request.items_per_category or 20,
+                        search_time_ms=int((time.time() - category_start) * 1000)
+                    )
                     result.debug_info.categories_missing.append(category)
-                    logger.warning(f"V2 API: No items found for category '{category}'")
             
             # Calculate totals
             result.debug_info.total_items = sum(
@@ -494,7 +522,15 @@ class RecommendationService:
                 success=False,
                 error=str(e),
                 categories={},
-                session_id=str(uuid.uuid4())
+                session_id=str(uuid.uuid4()),
+                debug_info=DebugInfo(
+                    user_selections=request.user_profile.preferred_article_types or [],
+                    categories_found=[],
+                    categories_missing=request.user_profile.preferred_article_types or [],
+                    total_items=0,
+                    search_mode=self._get_search_mode(),
+                    processing_time_ms=int((time.time() - start_time) * 1000)
+                )
             )
     
     def _get_search_mode(self) -> str:
@@ -507,54 +543,6 @@ class RecommendationService:
             return "embedding"
         else:
             return "keyword"
-    
-    async def _search_single_category(
-        self,
-        category: str,
-        request: RecommendationRequest,
-        query_embedding: List[float],
-        search_query: str,
-        exclude_ids: List[str]
-    ) -> List[ProductItem]:
-        """
-        Search for items in a single category with proper mapping
-        """
-        try:
-            # Map user-friendly category to database article types
-            db_article_types = self._map_article_type(category)
-            logger.info(f"V2 API: Searching category '{category}' -> database types {db_article_types}")
-            
-            # Search with specific article type filter
-            search_results = await self.vector_service.similarity_search(
-                query_embedding=query_embedding,
-                k=(request.items_per_category or 20) * 2,  # Get more for better filtering
-                exclude_ids=exclude_ids,
-                search_query=search_query,
-                gender_filter=request.user_profile.gender,
-                article_type_filter=db_article_types
-            )
-            
-            # Extract product items
-            category_items = [result[0] for result in search_results]
-            
-            # Enhance recommendations if we have items
-            if category_items:
-                enhanced_items = await self.openai_service.enhance_recommendations(
-                    user_profile=request.user_profile,
-                    recommendations=category_items,
-                    inspiration_analysis=None
-                )
-                # Limit to requested count
-                final_items = enhanced_items[:request.items_per_category or 20]
-            else:
-                final_items = []
-            
-            logger.info(f"V2 API: Category '{category}' search returned {len(final_items)} final items")
-            return final_items
-            
-        except Exception as e:
-            logger.error(f"V2 API: Error searching category '{category}': {e}")
-            return []
     
     def _map_article_type(self, user_selection: str) -> List[str]:
         """
