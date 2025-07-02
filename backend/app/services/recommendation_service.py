@@ -91,6 +91,10 @@ class RecommendationService:
             session_id = request.session_id or str(uuid.uuid4())
             logger.info(f"Processing recommendation request for session {session_id}")
             
+            # Log the request details for debugging
+            logger.info(f"Request details - items_per_category: {request.items_per_category}, top_k: {request.top_k}")
+            logger.info(f"User preferred_article_types: {request.user_profile.preferred_article_types}")
+            
             # Step 1: Assigne user profile
             user_profile = request.user_profile
             

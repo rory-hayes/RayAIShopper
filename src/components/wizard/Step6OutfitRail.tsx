@@ -98,6 +98,12 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
   const organizeItemsByCategory = useCallback((items: RecommendationItem[]) => {
     const categorized: Record<string, RecommendationItem[]> = {}
     
+    // PRODUCTION DEBUG - Remove after fixing
+    console.log('🔍 STEP6 DEBUG - Starting categorization with items:', {
+      itemCount: items.length,
+      sampleArticleTypes: items.slice(0, 5).map(item => item.article_type)
+    })
+    
     items.forEach(item => {
       // Use article_type for categorization instead of category (which is masterCategory)
       const category = item.article_type || item.category || 'Other'
@@ -105,6 +111,16 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
         categorized[category] = []
       }
       categorized[category].push(item)
+    })
+    
+    // PRODUCTION DEBUG - Remove after fixing
+    console.log('🔍 STEP6 DEBUG - Categorization Results:', {
+      totalCategories: Object.keys(categorized).length,
+      categories: Object.keys(categorized),
+      categoryDistribution: Object.entries(categorized).map(([cat, items]) => ({
+        category: cat,
+        itemCount: items.length
+      }))
     })
     
     setCategorizedItems(categorized)
@@ -400,10 +416,38 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           userProfile,
           itemsPerCategory: 20
         })
+        
+        // PRODUCTION DEBUG - Remove after fixing
+        console.log('🔍 STEP6 DEBUG - API Request:', {
+          userProfile,
+          itemsPerCategory: 20,
+          preferredArticleTypes: formData.preferredArticleTypes,
+          originalFormData: {
+            gender: formData.gender,
+            shoppingPrompt: formData.shoppingPrompt,
+            preferredStyles: formData.preferredStyles,
+            preferredColors: formData.preferredColors,
+            preferredArticleTypes: formData.preferredArticleTypes
+          }
+        })
 
         const response = await apiService.getRecommendations({
           user_profile: userProfile,
           items_per_category: 20 // Request 20 items per article type
+        })
+        
+        // PRODUCTION DEBUG - Remove after fixing
+        console.log('🔍 STEP6 DEBUG - Raw API Response Structure:', {
+          totalRecommendations: response.recommendations.length,
+          sessionId: response.session_id,
+          // Access raw response before processing
+          firstFewRawItems: response.recommendations.slice(0, 3).map((item: any) => ({
+            name: item.name,
+            category: item.category,
+            masterCategory: item.masterCategory,
+            article_type: item.article_type,
+            articleType: item.articleType
+          }))
         })
         
         stepLogger.info('STEP6', 'API Response Details:', {
@@ -451,6 +495,17 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
             article_type: item.article_type
           }))
         )
+        
+        // PRODUCTION DEBUG - Remove after fixing
+        console.log('🔍 STEP6 DEBUG - Processed Items for Categorization:', {
+          totalProcessed: processedRecommendations.length,
+          sampleItems: processedRecommendations.slice(0, 5).map(item => ({
+            name: item.name,
+            category: item.category,
+            article_type: item.article_type
+          })),
+          allArticleTypes: [...new Set(processedRecommendations.map(item => item.article_type))]
+        })
 
         // Update form data with recommendations and session ID
         updateFormData({ 
@@ -525,6 +580,14 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     const itemsToShow = getItemsForCategory(selectedCategory)
     setDisplayedItems(itemsToShow)
     stepLogger.debug('STEP6', `Showing ${itemsToShow.length} items for category: ${selectedCategory}`)
+    
+    // PRODUCTION DEBUG - Remove after fixing
+    console.log('🔍 STEP6 DEBUG - Items Display Update:', {
+      selectedCategory,
+      itemsToShow: itemsToShow.length,
+      availableCategories,
+      categorizedItemsKeys: Object.keys(categorizedItems)
+    })
   }, [selectedCategory, categorizedItems, getItemsForCategory])
 
   const handleNext = () => {
