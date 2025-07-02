@@ -451,7 +451,14 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
             masterCategory: item.masterCategory,
             article_type: item.article_type,
             articleType: item.articleType
-          }))
+          })),
+          // Show ALL article types in response
+          allRawArticleTypes: response.recommendations.map((item: any) => 
+            item.articleType || item.article_type || 'Unknown'
+          ),
+          uniqueRawArticleTypes: [...new Set(response.recommendations.map((item: any) => 
+            item.articleType || item.article_type || 'Unknown'
+          ))]
         })
         
         stepLogger.info('STEP6', 'API Response Details:', {

@@ -127,10 +127,43 @@ class RecommendationService:
             if request.items_per_category and user_profile.preferred_article_types:
                 logger.info(f"USING ITEMS_PER_CATEGORY LOGIC: Getting {request.items_per_category} items per category for {len(user_profile.preferred_article_types)} categories")
                 
+                # Map user-selected article types to database article types
+                def map_article_type(user_selection: str) -> List[str]:
+                    """Map user-friendly article type selections to database values"""
+                    mapping = {
+                        'Tshirts': ['Tshirts', 'T-Shirts', 'Shirts'],
+                        'Shirts': ['Shirts', 'Tshirts'],
+                        'Jeans': ['Jeans'],
+                        'Casual Shoes': ['Casual Shoes', 'Shoes'],
+                        'Sports Shoes': ['Sports Shoes', 'Shoes'],
+                        'Formal Shoes': ['Formal Shoes', 'Shoes'],
+                        'Sandals': ['Sandals', 'Flip Flops'],
+                        'Flip Flops': ['Flip Flops', 'Sandals'],
+                        'Shorts': ['Shorts'],
+                        'Trousers': ['Trousers'],
+                        'Track Pants': ['Track Pants'],
+                        'Jackets': ['Jackets'],
+                        'Sweaters': ['Sweaters'],
+                        'Sweatshirts': ['Sweatshirts'],
+                        'Kurtas': ['Kurtas'],
+                        'Tops': ['Tops'],
+                        'Dresses': ['Dresses'],
+                        'Skirts': ['Skirts'],
+                        'Leggings': ['Leggings'],
+                        'Heels': ['Heels'],
+                        'Flats': ['Flats']
+                    }
+                    return mapping.get(user_selection, [user_selection])
+                
                 # Get items for each preferred article type separately
                 all_recommendations = []
-                for article_type in user_profile.preferred_article_types:
-                    logger.info(f"Searching for {request.items_per_category} items of type: {article_type}")
+                for user_article_type in user_profile.preferred_article_types:
+                    # Map to database article types
+                    db_article_types = map_article_type(user_article_type)
+                    logger.info(f"Searching for {request.items_per_category} items of type: {user_article_type} -> {db_article_types}")
+                    
+                    # Debug: Log what we're actually searching for
+                    logger.info(f"DEBUG: About to search with article_type_filter=[{db_article_types}]")
                     
                     search_results = await self.vector_service.similarity_search(
                         query_embedding=query_embedding,
@@ -138,11 +171,17 @@ class RecommendationService:
                         exclude_ids=exclude_ids,
                         search_query=search_query,
                         gender_filter=user_profile.gender,
-                        article_type_filter=[article_type]  # Search for this specific type only
+                        article_type_filter=db_article_types  # Search for this specific type only
                     )
+                    
+                    logger.info(f"DEBUG: Search for {user_article_type} returned {len(search_results)} results")
                     
                     # Extract product items from search results for this category
                     category_items = [result[0] for result in search_results]
+                    
+                    # Debug: Log what article types were actually found
+                    found_article_types = [item.article_type for item in category_items]
+                    logger.info(f"DEBUG: Found article types for {user_article_type}: {set(found_article_types)}")
                     
                     # Enhance recommendations for this category
                     enhanced_category_items = await self.openai_service.enhance_recommendations(
@@ -155,7 +194,7 @@ class RecommendationService:
                     final_category_items = enhanced_category_items[:request.items_per_category]
                     all_recommendations.extend(final_category_items)
                     
-                    logger.info(f"Got {len(final_category_items)} items for {article_type}")
+                    logger.info(f"Got {len(final_category_items)} items for {user_article_type}")
                 
                 final_recommendations = all_recommendations
                 total_available = len(all_recommendations)

@@ -382,11 +382,19 @@ class VectorSearchService:
         """
         logger.info("Using keyword-based similarity search with text matching")
         
+        # Debug: Log what article types we're filtering for
+        if article_type_filter:
+            logger.info(f"DEBUG: Filtering for article types: {article_type_filter}")
+        
         # Filter out excluded IDs
         available_products = [p for p in self.products_data if str(p['id']) not in exclude_ids]
         
         if not available_products:
             return []
+        
+        # Debug: Log sample of available article types
+        sample_article_types = [p.get('articleType', 'Unknown') for p in available_products[:10]]
+        logger.info(f"DEBUG: Sample article types in database: {set(sample_article_types)}")
         
         # If we have a search query, do text-based matching
         if search_query:
@@ -399,6 +407,8 @@ class VectorSearchService:
                     if gender_filter and product_data.get('gender', '') != gender_filter:
                         continue
                     if article_type_filter and product_data.get('articleType', '') not in article_type_filter:
+                        # Debug: Log what's being filtered out
+                        logger.debug(f"DEBUG: Filtering out {product_data.get('articleType', 'Unknown')} - not in {article_type_filter}")
                         continue
                     scored_products.append((product_data, score))
             
@@ -409,8 +419,18 @@ class VectorSearchService:
             
         else:
             # Fallback to diverse selection if no search query
-            sample_size = min(k, len(available_products))
-            selected_products = [(p, 0.5) for p in available_products[:sample_size]]
+            filtered_products = []
+            for product_data in available_products:
+                if gender_filter and product_data.get('gender', '') != gender_filter:
+                    continue
+                if article_type_filter and product_data.get('articleType', '') not in article_type_filter:
+                    # Debug: Log what's being filtered out
+                    logger.debug(f"DEBUG: Filtering out {product_data.get('articleType', 'Unknown')} - not in {article_type_filter}")
+                    continue
+                filtered_products.append(product_data)
+            
+            sample_size = min(k, len(filtered_products))
+            selected_products = [(p, 0.5) for p in filtered_products[:sample_size]]
         
         # Convert to ProductItem format
         results = []
