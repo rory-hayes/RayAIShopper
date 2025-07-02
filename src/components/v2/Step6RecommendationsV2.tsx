@@ -19,8 +19,25 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
   const { setSessionId } = useChatContext()
   const userProfile = convertToUserProfile(formData)
   
-  // Local state for interactions
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  // Use V2 hook with new replaceItem functionality
+  const {
+    status,
+    categories,
+    selectedCategory,
+    error,
+    debugInfo,
+    selectedItems,
+    retry,
+    selectCategory,
+    toggleItemSelection,
+    replaceItem,  // New efficient replace function
+    getDisplayItems,
+    totalItems,
+    categoryNames,
+    hasItems
+  } = useRecommendationsV2(userProfile)
+
+  // Local state for UI interactions
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
   const [isReplacingItem, setIsReplacingItem] = useState<string | null>(null)
   const [showTryOnModal, setShowTryOnModal] = useState(false)
@@ -28,25 +45,10 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
     item: ProductItem
     selfieBase64: string
   } | null>(null)
-  
-  const { 
-    status, 
-    categories, 
-    selectedCategory, 
-    error, 
-    debugInfo,
-    retry, 
-    selectCategory, 
-    getDisplayItems,
-    totalItems,
-    categoryNames,
-    hasItems
-  } = useRecommendationsV2(userProfile)
 
-  // Handle item feedback
+  // Handle general feedback (like)
   const handleFeedback = useCallback(async (item: ProductItem, action: 'like' | 'dislike') => {
     try {
-      // Update local state immediately for better UX
       if (action === 'like') {
         setLikedItems(prev => new Set([...prev, item.id]))
       }
@@ -58,61 +60,48 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
     }
   }, [])
 
-  // Handle dislike with item replacement (simplified for V2)
+  // Handle dislike with INSTANT item replacement from reserves
   const handleDislike = useCallback(async (item: ProductItem) => {
-    console.log('V2: User disliked item', item.name)
+    console.log('🔄 V2: User disliked item', item.name, 'replacing instantly...')
     
     setIsReplacingItem(item.id)
     
     try {
-      // Send dislike feedback
-      await handleFeedback(item, 'dislike')
+      // Send dislike feedback (non-blocking)
+      handleFeedback(item, 'dislike')
       
-      // Get all items from all categories
-      const allItems = categoryNames.flatMap(cat => categories[cat]?.items || [])
-      const currentDisplayedItems = getDisplayItems(selectedCategory)
-      const displayedIds = new Set(currentDisplayedItems.map(i => i.id))
+      // Find which category this item belongs to
+      let itemCategory = item.article_type
       
-      // Find items not currently displayed that could replace this one
-      const availableReplacements = allItems.filter(i => 
-        !displayedIds.has(i.id) && 
-        i.id !== item.id &&
-        (selectedCategory === 'all' || i.article_type === item.article_type)
-      )
-      
-      console.log('V2: Available replacements:', availableReplacements.length)
-      
-      if (availableReplacements.length > 0) {
-        // Replace the item in the category data
-        const replacementItem = availableReplacements[0]
-        const itemCategory = item.article_type
-        
-        // Update the category data to replace the disliked item
-        if (categories[itemCategory]) {
-          const updatedItems = categories[itemCategory].items.map(i => 
-            i.id === item.id ? replacementItem : i
-          )
-          
-          // Force a re-render by updating the categories through retry
-          console.log('V2: Replacing item with:', replacementItem.name)
-          
-          // Trigger a refresh to get new items
-          setTimeout(() => {
-            retry()
-          }, 1000)
+      // If we're in 'all' view, we need to find the specific category
+      if (selectedCategory === 'all') {
+        // Find the category that contains this item
+        for (const [catName, catData] of Object.entries(categories)) {
+          if (catData.items.some(i => i.id === item.id)) {
+            itemCategory = catName
+            break
+          }
         }
       } else {
-        console.log('V2: No replacement items available, just removing dislike feedback')
+        itemCategory = selectedCategory
       }
       
+      console.log(`🔄 V2: Replacing item from category: ${itemCategory}`)
+      
+      // Use the new efficient replaceItem function
+      replaceItem(item.id, itemCategory)
+      
+      console.log('✅ V2: Item replaced instantly from reserves!')
+      
     } catch (error) {
-      console.error('V2: Error in handleDislike', error)
+      console.error('❌ V2: Error in handleDislike', error)
     } finally {
+      // Short delay for visual feedback
       setTimeout(() => {
         setIsReplacingItem(null)
-      }, 1000)
+      }, 500)  // Reduced from 1000ms to 500ms since it's instant now
     }
-  }, [handleFeedback, categories, categoryNames, selectedCategory, getDisplayItems, retry])
+  }, [handleFeedback, selectedCategory, categories, replaceItem])
 
   // Handle virtual try-on
   const handleTryOn = useCallback(async (item: ProductItem) => {
@@ -140,23 +129,15 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
 
   // Handle item selection for checkout
   const handleSelectItem = useCallback((itemId: string) => {
-    setSelectedItems(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId)
-      } else {
-        newSet.add(itemId)
-      }
-      return newSet
-    })
-  }, [])
+    toggleItemSelection(itemId)
+  }, [toggleItemSelection])
 
   // Handle continue to next step
   const handleNext = () => {
     if (selectedItems.size > 0) {
-      // Get the actual selected items to pass to checkout
-      const allItems = categoryNames.flatMap(cat => categories[cat]?.items || [])
-      const userSelectedItems = allItems.filter(item => selectedItems.has(item.id))
+      // Get the actual selected items from displayed items across all categories
+      const allDisplayedItems = Object.values(categories).flatMap(cat => cat.items || [])
+      const userSelectedItems = allDisplayedItems.filter(item => selectedItems.has(item.id))
       
       console.log('✅ V2 Component: Proceeding with selected items:', userSelectedItems)
       

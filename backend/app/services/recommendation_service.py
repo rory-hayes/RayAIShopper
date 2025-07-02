@@ -478,7 +478,7 @@ class RecommendationService:
                         # Use embedding search (same as V1)
                         search_results = await self.vector_service.similarity_search(
                             query_embedding=query_embedding,
-                            k=(request.items_per_category or 20) * 2,  # Get more for better filtering
+                            k=(request.items_per_category or 20) * 3,  # Get 3x more for better filtering and reserves
                             exclude_ids=exclude_ids,
                             search_query=search_query,
                             gender_filter=user_profile.gender,
@@ -488,7 +488,7 @@ class RecommendationService:
                         # Fallback to keyword search if embedding failed
                         search_results = await self.vector_service.similarity_search(
                             query=search_query,
-                            k=request.items_per_category or 20,
+                            k=(request.items_per_category or 20) * 2,  # Get 2x more for reserves
                             exclude_ids=exclude_ids,
                             search_query=search_query,
                             gender_filter=user_profile.gender,
@@ -509,14 +509,15 @@ class RecommendationService:
                                 recommendations=category_items,
                                 inspiration_analysis=None
                             )
-                            final_items = enhanced_items[:request.items_per_category or 20]
-                            logger.info(f"V2 API: Enhanced to {len(final_items)} items for category '{category}'")
+                            # Return 40 items per category (20 for display + 20 for reserves)
+                            final_items = enhanced_items[:(request.items_per_category or 20) * 2]
+                            logger.info(f"V2 API: Enhanced to {len(final_items)} items for category '{category}' (includes reserves)")
                         else:
                             final_items = []
                     except Exception as enhance_error:
                         logger.warning(f"V2 API: Enhancement failed for category '{category}': {enhance_error}")
                         # Use raw results if enhancement fails
-                        final_items = category_items[:request.items_per_category or 20]
+                        final_items = category_items[:(request.items_per_category or 20) * 2]
                     
                     category_time = int((time.time() - category_start) * 1000)
                     
