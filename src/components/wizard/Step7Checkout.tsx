@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { StoreMapModal } from '../ui/StoreMapModal'
-import { MapPin, ShoppingBag, CreditCard, Store } from 'lucide-react'
+import { MapPin, ShoppingBag, CreditCard, Store, Star } from 'lucide-react'
 import { stepLogger } from '../../utils/logger'
 
 export const Step7Checkout: React.FC = () => {
@@ -11,6 +11,12 @@ export const Step7Checkout: React.FC = () => {
   const [showStoreMap, setShowStoreMap] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'store' | 'online'>('store')
+  
+  // Review section state
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [hasSubmittedReview, setHasSubmittedReview] = useState(false)
   
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
@@ -50,6 +56,34 @@ export const Step7Checkout: React.FC = () => {
 
   const handleNewSession = () => {
     resetWizard()
+  }
+
+  const handleReviewSubmit = () => {
+    if (rating > 0) {
+      stepLogger.info('CHECKOUT', 'Review submitted', {
+        rating,
+        comment: reviewComment,
+        sessionId: formData.sessionId
+      })
+      
+      // In a real app, this would send to analytics/backend
+      setHasSubmittedReview(true)
+      
+      // Show success message
+      alert(`Thank you for your ${rating} star review! Your feedback helps Ray improve.`)
+    }
+  }
+
+  const handleStarClick = (starRating: number) => {
+    setRating(starRating)
+  }
+
+  const handleStarHover = (starRating: number) => {
+    setHoverRating(starRating)
+  }
+
+  const handleStarLeave = () => {
+    setHoverRating(0)
   }
 
   if (selectedItems.length === 0) {
@@ -166,17 +200,6 @@ export const Step7Checkout: React.FC = () => {
             ))}
           </div>
 
-          {/* Store Navigation Help */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Store Navigation Tips</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Use the store map near the entrance</li>
-              <li>• Ask any associate for directions</li>
-              <li>• Items are organized by department and level</li>
-              <li>• Fitting rooms are available on each level</li>
-            </ul>
-          </div>
-
           {/* Store Actions */}
           <div className="space-y-4">
             <Button
@@ -255,6 +278,74 @@ export const Step7Checkout: React.FC = () => {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Review Section */}
+      {!hasSubmittedReview && (
+        <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 mt-6">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              How was your Ray AI experience?
+            </h3>
+            <p className="text-sm text-gray-600">
+              Your feedback helps Ray improve for everyone
+            </p>
+          </div>
+
+          {/* Star Rating */}
+          <div className="flex justify-center mb-4">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => handleStarClick(star)}
+                onMouseEnter={() => handleStarHover(star)}
+                onMouseLeave={handleStarLeave}
+                className="p-1 transition-transform hover:scale-110"
+              >
+                <Star
+                  className={`h-8 w-8 transition-colors ${
+                    star <= (hoverRating || rating)
+                      ? 'text-yellow-400 fill-yellow-400'
+                      : 'text-gray-300'
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+
+          {/* Comment Text Area */}
+          {rating > 0 && (
+            <div className="mb-4">
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Tell us what you loved about Ray's recommendations..."
+                className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
+                rows={3}
+              />
+            </div>
+          )}
+
+          {/* Submit Button */}
+          {rating > 0 && (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleReviewSubmit}
+                fullWidth
+                className="bg-gray-900 hover:bg-gray-800 text-white"
+              >
+                Submit Review
+              </Button>
+              <Button
+                onClick={() => setHasSubmittedReview(true)}
+                variant="ghost"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Skip
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
