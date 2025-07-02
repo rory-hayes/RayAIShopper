@@ -120,8 +120,12 @@ class RecommendationService:
                 exclude_ids = request.filters.exclude_ids
             
             # Check if we need items per category or total items
+            logger.info(f"Condition check - items_per_category: {request.items_per_category} (type: {type(request.items_per_category)})")
+            logger.info(f"Condition check - preferred_article_types: {user_profile.preferred_article_types} (type: {type(user_profile.preferred_article_types)})")
+            logger.info(f"Condition check - both truthy: {bool(request.items_per_category and user_profile.preferred_article_types)}")
+            
             if request.items_per_category and user_profile.preferred_article_types:
-                logger.info(f"Getting {request.items_per_category} items per category for {len(user_profile.preferred_article_types)} categories")
+                logger.info(f"USING ITEMS_PER_CATEGORY LOGIC: Getting {request.items_per_category} items per category for {len(user_profile.preferred_article_types)} categories")
                 
                 # Get items for each preferred article type separately
                 all_recommendations = []
@@ -158,6 +162,7 @@ class RecommendationService:
                 
             else:
                 # Original logic for total item count
+                logger.info(f"USING ORIGINAL LOGIC: items_per_category={request.items_per_category}, preferred_article_types={user_profile.preferred_article_types}")
                 search_results = await self.vector_service.similarity_search(
                     query_embedding=query_embedding,
                     k=request.top_k * 2,  # Get more results for better filtering

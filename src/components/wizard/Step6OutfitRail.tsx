@@ -422,6 +422,10 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           userProfile,
           itemsPerCategory: 20,
           preferredArticleTypes: formData.preferredArticleTypes,
+          fullApiPayload: {
+            user_profile: userProfile,
+            items_per_category: 20
+          },
           originalFormData: {
             gender: formData.gender,
             shoppingPrompt: formData.shoppingPrompt,
