@@ -68,17 +68,51 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
       // Send dislike feedback
       await handleFeedback(item, 'dislike')
       
-      // For V2, we'll just show the dislike feedback without replacement
-      // since we have reliable category-based results
-      setTimeout(() => {
-        setIsReplacingItem(null)
-      }, 1000)
+      // Get all items from all categories
+      const allItems = categoryNames.flatMap(cat => categories[cat]?.items || [])
+      const currentDisplayedItems = getDisplayItems(selectedCategory)
+      const displayedIds = new Set(currentDisplayedItems.map(i => i.id))
+      
+      // Find items not currently displayed that could replace this one
+      const availableReplacements = allItems.filter(i => 
+        !displayedIds.has(i.id) && 
+        i.id !== item.id &&
+        (selectedCategory === 'all' || i.article_type === item.article_type)
+      )
+      
+      console.log('V2: Available replacements:', availableReplacements.length)
+      
+      if (availableReplacements.length > 0) {
+        // Replace the item in the category data
+        const replacementItem = availableReplacements[0]
+        const itemCategory = item.article_type
+        
+        // Update the category data to replace the disliked item
+        if (categories[itemCategory]) {
+          const updatedItems = categories[itemCategory].items.map(i => 
+            i.id === item.id ? replacementItem : i
+          )
+          
+          // Force a re-render by updating the categories through retry
+          console.log('V2: Replacing item with:', replacementItem.name)
+          
+          // Trigger a refresh to get new items
+          setTimeout(() => {
+            retry()
+          }, 1000)
+        }
+      } else {
+        console.log('V2: No replacement items available, just removing dislike feedback')
+      }
       
     } catch (error) {
       console.error('V2: Error in handleDislike', error)
-      setIsReplacingItem(null)
+    } finally {
+      setTimeout(() => {
+        setIsReplacingItem(null)
+      }, 1000)
     }
-  }, [handleFeedback])
+  }, [handleFeedback, categories, categoryNames, selectedCategory, getDisplayItems, retry])
 
   // Handle virtual try-on
   const handleTryOn = useCallback(async (item: ProductItem) => {

@@ -10,9 +10,28 @@ export const Step5AIWorking: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('')
   const [hasProcessed, setHasProcessed] = useState(false)
 
+  // Check if V2 is enabled to avoid dual API calls
+  const envFlag = process.env.REACT_APP_USE_RECOMMENDATIONS_V2 === 'true'
+  const localStorageFlag = localStorage.getItem('useRecommendationsV2') === 'true'
+  const urlFlag = new URLSearchParams(window.location.search).get('v2') === 'true'
+  const useV2Recommendations = envFlag || localStorageFlag || urlFlag
+
   useEffect(() => {
     if (hasProcessed) {
       stepLogger.debug('STEP5', 'Skipping API call - already processed')
+      return
+    }
+
+    // If V2 is enabled, skip V1 API call and go directly to Step 6
+    if (useV2Recommendations) {
+      stepLogger.info('STEP5', 'V2 enabled - skipping Step 5 V1 API call, letting Step 6 V2 handle it')
+      setHasProcessed(true)
+      setStatus('success')
+      
+      // Short delay then auto-advance to Step 6 where V2 will handle the API call
+      setTimeout(() => {
+        nextStep()
+      }, 1000)
       return
     }
 
@@ -25,7 +44,7 @@ export const Step5AIWorking: React.FC = () => {
       setHasProcessed(true)
       
       try {
-        stepLogger.info('STEP5', 'Starting API call')
+        stepLogger.info('STEP5', 'Starting V1 API call')
         
         const userProfile = convertToUserProfile(formData)
         stepLogger.debug('STEP5', 'User Profile created', userProfile)
@@ -188,7 +207,7 @@ export const Step5AIWorking: React.FC = () => {
     }
 
     processRecommendations()
-  }, [formData, updateFormData, hasProcessed, nextStep])
+  }, [formData, updateFormData, hasProcessed, nextStep, useV2Recommendations])
 
   const handleContinue = () => {
     nextStep()
@@ -203,32 +222,38 @@ export const Step5AIWorking: React.FC = () => {
   const renderContent = () => {
     switch (status) {
       case 'processing':
-  return (
+        return (
           <>
-      <div className="mb-8">
-        <div className="relative">
-          <Sparkles className="h-16 w-16 text-gray-900 mx-auto animate-pulse" />
-          <div className="absolute inset-0 animate-spin">
-            <Sparkles className="h-16 w-16 text-gray-400 mx-auto opacity-30" />
-          </div>
-        </div>
-      </div>
+            <div className="mb-8">
+              <div className="relative">
+                <Sparkles className="h-16 w-16 text-gray-900 mx-auto animate-pulse" />
+                <div className="absolute inset-0 animate-spin">
+                  <Sparkles className="h-16 w-16 text-gray-400 mx-auto opacity-30" />
+                </div>
+              </div>
+            </div>
 
-      <h1 className="text-3xl font-light text-gray-900 mb-4">
-        Sit tight while Ray curates your look…
-      </h1>
-      
-      <p className="text-gray-600 mb-8">
-        Analyzing your style preferences and finding the perfect pieces
-      </p>
+            <h1 className="text-3xl font-light text-gray-900 mb-4">
+              {useV2Recommendations 
+                ? "Preparing your enhanced experience..."
+                : "Sit tight while Ray curates your look…"
+              }
+            </h1>
+            
+            <p className="text-gray-600 mb-8">
+              {useV2Recommendations
+                ? "Setting up the improved recommendation system"
+                : "Analyzing your style preferences and finding the perfect pieces"
+              }
+            </p>
 
-      <div className="flex justify-center">
-        <div className="flex space-x-2">
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        </div>
-      </div>
+            <div className="flex justify-center">
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+            </div>
           </>
         )
 
@@ -240,11 +265,17 @@ export const Step5AIWorking: React.FC = () => {
             </div>
 
             <h1 className="text-3xl font-light text-gray-900 mb-4">
-              Perfect! Your curated look is ready
+              {useV2Recommendations
+                ? "Ready! Taking you to your recommendations"
+                : "Perfect! Your curated look is ready"
+              }
             </h1>
             
             <p className="text-gray-600 mb-8">
-              Taking you to your recommendations...
+              {useV2Recommendations
+                ? "Loading your personalized recommendations..."
+                : "Taking you to your recommendations..."
+              }
             </p>
           </>
         )
