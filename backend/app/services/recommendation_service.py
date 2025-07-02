@@ -98,6 +98,12 @@ class RecommendationService:
             # Step 1: Assigne user profile
             user_profile = request.user_profile
             
+            # Debug: Log user profile details
+            logger.info(f"DEBUG: User profile details:")
+            logger.info(f"  Gender: '{user_profile.gender}' (type: {type(user_profile.gender)})")
+            logger.info(f"  Preferred article types: {user_profile.preferred_article_types}")
+            logger.info(f"  Shopping prompt: '{user_profile.shopping_prompt}'")
+            
             # Step 2: Analyse inspiration images if provided
             inspiration_analysis = None
             if request.inspiration_images:
@@ -131,8 +137,8 @@ class RecommendationService:
                 def map_article_type(user_selection: str) -> List[str]:
                     """Map user-friendly article type selections to database values"""
                     mapping = {
-                        'Tshirts': ['Tshirts', 'T-Shirts', 'Shirts'],
-                        'Shirts': ['Shirts', 'Tshirts'],
+                        'Tshirts': ['Tshirts', 'T-Shirts'],  # More precise mapping
+                        'Shirts': ['Shirts'],
                         'Jeans': ['Jeans'],
                         'Casual Shoes': ['Casual Shoes', 'Shoes'],
                         'Sports Shoes': ['Sports Shoes', 'Shoes'],
@@ -155,6 +161,12 @@ class RecommendationService:
                     }
                     return mapping.get(user_selection, [user_selection])
                 
+                # Debug: Show what we're mapping before starting search
+                logger.info(f"DEBUG: User preferences to search: {user_profile.preferred_article_types}")
+                for user_type in user_profile.preferred_article_types:
+                    mapped_types = map_article_type(user_type)
+                    logger.info(f"DEBUG: {user_type} -> {mapped_types}")
+                
                 # Get items for each preferred article type separately
                 all_recommendations = []
                 for user_article_type in user_profile.preferred_article_types:
@@ -163,7 +175,7 @@ class RecommendationService:
                     logger.info(f"Searching for {request.items_per_category} items of type: {user_article_type} -> {db_article_types}")
                     
                     # Debug: Log what we're actually searching for
-                    logger.info(f"DEBUG: About to search with article_type_filter=[{db_article_types}]")
+                    logger.info(f"DEBUG: About to search with article_type_filter={db_article_types}")
                     
                     search_results = await self.vector_service.similarity_search(
                         query_embedding=query_embedding,
@@ -182,6 +194,14 @@ class RecommendationService:
                     # Debug: Log what article types were actually found
                     found_article_types = [item.article_type for item in category_items]
                     logger.info(f"DEBUG: Found article types for {user_article_type}: {set(found_article_types)}")
+                    
+                    # Debug: Log specific products found
+                    if category_items:
+                        logger.info(f"DEBUG: Sample products found for {user_article_type}:")
+                        for i, item in enumerate(category_items[:3]):
+                            logger.info(f"  {i+1}. {item.name} (article_type: {item.article_type})")
+                    else:
+                        logger.warning(f"DEBUG: NO PRODUCTS FOUND for {user_article_type} with filter {db_article_types}")
                     
                     # Enhance recommendations for this category
                     enhanced_category_items = await self.openai_service.enhance_recommendations(

@@ -396,6 +396,17 @@ class VectorSearchService:
         sample_article_types = [p.get('articleType', 'Unknown') for p in available_products[:10]]
         logger.info(f"DEBUG: Sample article types in database: {set(sample_article_types)}")
         
+        # Debug: Count how many products match each article type in filter
+        if article_type_filter:
+            for filter_type in article_type_filter:
+                matching_count = len([p for p in available_products if p.get('articleType', '') == filter_type])
+                logger.info(f"DEBUG: Found {matching_count} products with articleType='{filter_type}'")
+                if matching_count > 0:
+                    # Show sample products for this type
+                    sample_products = [p for p in available_products if p.get('articleType', '') == filter_type][:3]
+                    for i, product in enumerate(sample_products):
+                        logger.info(f"  Sample {i+1}: {product.get('productDisplayName', 'Unknown')} (gender: {product.get('gender', 'Unknown')})")
+        
         # If we have a search query, do text-based matching
         if search_query:
             scored_products = []
@@ -422,12 +433,15 @@ class VectorSearchService:
             filtered_products = []
             for product_data in available_products:
                 if gender_filter and product_data.get('gender', '') != gender_filter:
+                    logger.debug(f"DEBUG: Gender filter - excluding {product_data.get('gender', 'Unknown')} (want {gender_filter})")
                     continue
                 if article_type_filter and product_data.get('articleType', '') not in article_type_filter:
                     # Debug: Log what's being filtered out
-                    logger.debug(f"DEBUG: Filtering out {product_data.get('articleType', 'Unknown')} - not in {article_type_filter}")
+                    logger.debug(f"DEBUG: ArticleType filter - excluding {product_data.get('articleType', 'Unknown')} (want one of {article_type_filter})")
                     continue
                 filtered_products.append(product_data)
+            
+            logger.info(f"DEBUG: After filtering - {len(filtered_products)} products remain from {len(available_products)} total")
             
             sample_size = min(k, len(filtered_products))
             selected_products = [(p, 0.5) for p in filtered_products[:sample_size]]

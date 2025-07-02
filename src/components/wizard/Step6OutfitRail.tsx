@@ -4,7 +4,7 @@ import { Button } from '../ui/Button'
 import { useWizard } from '../../contexts/WizardContext'
 import { useChatContext } from '../../contexts/ChatContext'
 import { RecommendationItem } from '../../types'
-import { apiService } from '../../services/api'
+import { apiService, convertToUserProfile } from '../../services/api'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
 import { stepLogger } from '../../utils/logger'
 
@@ -404,13 +404,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
       try {
         stepLogger.info('STEP6', 'Fetching fresh recommendations from API')
         
-        const userProfile = {
-          shopping_prompt: formData.shoppingPrompt,
-          gender: formData.gender,
-          preferred_styles: formData.preferredStyles,
-          preferred_colors: formData.preferredColors,
-          preferred_article_types: formData.preferredArticleTypes
-        }
+        const userProfile = convertToUserProfile(formData)
         
         stepLogger.info('STEP6', 'Sending API Request:', {
           userProfile,
