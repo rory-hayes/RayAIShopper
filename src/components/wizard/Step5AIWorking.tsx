@@ -6,7 +6,7 @@ import { stepLogger } from '../../utils/logger'
 
 export const Step5AIWorking: React.FC = () => {
   const { formData, updateFormData, nextStep } = useWizard()
-  const [status, setStatus] = useState<'processing' | 'success' | 'ready' | 'error' | 'fallback'>('processing')
+  const [status, setStatus] = useState<'processing' | 'success' | 'error' | 'fallback'>('processing')
   const [errorMessage, setErrorMessage] = useState('')
   const [hasProcessed, setHasProcessed] = useState(false)
 
@@ -170,10 +170,10 @@ export const Step5AIWorking: React.FC = () => {
         
         setStatus('success')
         
-        // Show success message for 2 seconds, then show "Continue" button
+        // Show success message briefly, then automatically advance to Step 6
         setTimeout(() => {
-          setStatus('ready')
-        }, 2000)
+          nextStep()
+        }, 1500) // Shorter delay, then auto-advance
 
       } catch (error) {
         stepLogger.error('STEP5', 'Failed to fetch recommendations:', error)
@@ -188,7 +188,7 @@ export const Step5AIWorking: React.FC = () => {
     }
 
     processRecommendations()
-  }, [formData, updateFormData, hasProcessed])
+  }, [formData, updateFormData, hasProcessed, nextStep])
 
   const handleContinue = () => {
     nextStep()
@@ -244,32 +244,8 @@ export const Step5AIWorking: React.FC = () => {
             </h1>
             
             <p className="text-gray-600 mb-8">
-              Ray has found some amazing pieces just for you
+              Taking you to your recommendations...
             </p>
-          </>
-        )
-
-      case 'ready':
-        return (
-          <>
-            <div className="mb-8">
-              <Sparkles className="h-16 w-16 text-green-600 mx-auto" />
-            </div>
-
-            <h1 className="text-3xl font-light text-gray-900 mb-4">
-              Your curated look is ready!
-            </h1>
-            
-            <p className="text-gray-600 mb-8">
-              Ray has found {formData.selectedItems?.length || 0} amazing pieces just for you. Ready to see them?
-            </p>
-
-            <button
-              onClick={handleContinue}
-              className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-lg font-medium transition-colors"
-            >
-              View My Recommendations
-            </button>
           </>
         )
 
