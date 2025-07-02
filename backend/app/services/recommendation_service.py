@@ -410,7 +410,7 @@ class RecommendationService:
     async def get_recommendations_v2(self, request: RecommendationRequest) -> RecommendationResponseV2:
         """
         V2 API that guarantees category structure and clear error handling
-        Simplified version to avoid timeouts
+        Uses the same successful approach as V1 but with better error handling
         """
         start_time = time.time()
         
@@ -438,46 +438,85 @@ class RecommendationService:
                 )
             )
             
-            # Simplified approach: Use basic search without complex OpenAI calls
+            # Use the same successful approach as V1
+            user_profile = request.user_profile
             exclude_ids = []
             if request.filters and request.filters.exclude_ids:
                 exclude_ids = request.filters.exclude_ids
             
-            # Create simple search query from user profile (no OpenAI call)
-            search_terms = []
-            search_terms.append(request.user_profile.shopping_prompt)
-            if request.user_profile.preferred_styles:
-                search_terms.extend(request.user_profile.preferred_styles)
-            if request.user_profile.preferred_colors:
-                search_terms.extend(request.user_profile.preferred_colors)
+            try:
+                # Step 1: Create enhanced search query (like V1)
+                logger.info("V2 API: Creating enhanced search query...")
+                search_query = await self.openai_service.create_search_query_from_profile(
+                    user_profile=user_profile,
+                    inspiration_analysis=None  # Skip image analysis for speed
+                )
+                logger.info(f"V2 API: Generated search query: {search_query}")
+                
+                # Step 2: Generate query embedding (like V1)
+                logger.info("V2 API: Generating query embedding...")
+                query_embedding = await self.openai_service.get_query_embedding(search_query)
+                logger.info("V2 API: Query embedding generated successfully")
+                
+            except Exception as openai_error:
+                logger.error(f"V2 API: OpenAI error (falling back to simple search): {openai_error}")
+                # Fallback to simple search if OpenAI fails
+                search_query = f"{user_profile.shopping_prompt} {' '.join(user_profile.preferred_styles or [])} {' '.join(user_profile.preferred_colors or [])}"
+                query_embedding = None
             
-            simple_query = " ".join(search_terms)
-            logger.info(f"V2 API: Using simplified search query: {simple_query}")
-            
-            # Search each category individually with simplified approach
+            # Search each category individually (like V1)
             for category in user_categories:
                 category_start = time.time()
                 
                 try:
-                    # Map user-friendly category to database article types
+                    # Map user-friendly category to database article types (same as V1)
                     db_article_types = self._map_article_type(category)
                     logger.info(f"V2 API: Searching category '{category}' -> database types {db_article_types}")
                     
-                    # Use simple keyword search instead of embedding search to avoid timeouts
-                    search_results = await self.vector_service.similarity_search(
-                        query=simple_query,  # Use simple string query instead of embedding
-                        k=request.items_per_category or 20,
-                        exclude_ids=exclude_ids,
-                        search_query=simple_query,
-                        gender_filter=request.user_profile.gender,
-                        article_type_filter=db_article_types
-                    )
+                    # Use the same search approach as V1
+                    if query_embedding:
+                        # Use embedding search (same as V1)
+                        search_results = await self.vector_service.similarity_search(
+                            query_embedding=query_embedding,
+                            k=(request.items_per_category or 20) * 2,  # Get more for better filtering
+                            exclude_ids=exclude_ids,
+                            search_query=search_query,
+                            gender_filter=user_profile.gender,
+                            article_type_filter=db_article_types
+                        )
+                    else:
+                        # Fallback to keyword search if embedding failed
+                        search_results = await self.vector_service.similarity_search(
+                            query=search_query,
+                            k=request.items_per_category or 20,
+                            exclude_ids=exclude_ids,
+                            search_query=search_query,
+                            gender_filter=user_profile.gender,
+                            article_type_filter=db_article_types
+                        )
                     
-                    # Extract product items (simplified - no enhancement)
-                    category_items = [result[0] if isinstance(result, tuple) else result for result in search_results]
+                    # Extract product items (same as V1)
+                    category_items = [result[0] for result in search_results]
                     
-                    # Limit to requested count
-                    final_items = category_items[:request.items_per_category or 20]
+                    logger.info(f"V2 API: Found {len(category_items)} raw items for category '{category}'")
+                    
+                    # Try to enhance recommendations (same as V1, but with error handling)
+                    try:
+                        if category_items:
+                            logger.info(f"V2 API: Enhancing {len(category_items)} items for category '{category}'...")
+                            enhanced_items = await self.openai_service.enhance_recommendations(
+                                user_profile=user_profile,
+                                recommendations=category_items,
+                                inspiration_analysis=None
+                            )
+                            final_items = enhanced_items[:request.items_per_category or 20]
+                            logger.info(f"V2 API: Enhanced to {len(final_items)} items for category '{category}'")
+                        else:
+                            final_items = []
+                    except Exception as enhance_error:
+                        logger.warning(f"V2 API: Enhancement failed for category '{category}': {enhance_error}")
+                        # Use raw results if enhancement fails
+                        final_items = category_items[:request.items_per_category or 20]
                     
                     category_time = int((time.time() - category_start) * 1000)
                     
@@ -490,7 +529,7 @@ class RecommendationService:
                     
                     if final_items:
                         result.debug_info.categories_found.append(category)
-                        logger.info(f"V2 API: Found {len(final_items)} items for category '{category}' in {category_time}ms")
+                        logger.info(f"V2 API: Successfully found {len(final_items)} items for category '{category}' in {category_time}ms")
                     else:
                         result.debug_info.categories_missing.append(category)
                         logger.warning(f"V2 API: No items found for category '{category}'")
