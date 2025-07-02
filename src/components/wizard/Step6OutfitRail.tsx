@@ -58,6 +58,11 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     selfieBase64: string
   } | null>(null)
   
+  // Category organization state
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [categorizedItems, setCategorizedItems] = useState<Record<string, RecommendationItem[]>>({})
+  const [availableCategories, setAvailableCategories] = useState<string[]>([])
+  
   // State for refreshing functionality
   const [refreshCount, setRefreshCount] = useState(0)
   
@@ -88,6 +93,50 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     stepLogger.info('STEP6', 'Using fallback mock data')
     return mockRecommendations
   }, [formData.cachedRecommendations, formData.selectedItems, formData.hasLoadedRecommendations])
+
+  // Organize items by category
+  const organizeItemsByCategory = useCallback((items: RecommendationItem[]) => {
+    const categorized: Record<string, RecommendationItem[]> = {}
+    
+    items.forEach(item => {
+      const category = item.category || 'Other'
+      if (!categorized[category]) {
+        categorized[category] = []
+      }
+      categorized[category].push(item)
+    })
+    
+    setCategorizedItems(categorized)
+    
+    // Get available categories (only those with items)
+    const categories = Object.keys(categorized).sort()
+    setAvailableCategories(categories)
+    
+    // Set default category to first available or 'All'
+    if (categories.length > 1) {
+      setSelectedCategory('All')
+    } else if (categories.length === 1) {
+      setSelectedCategory(categories[0])
+    }
+    
+    stepLogger.debug('STEP6', 'Organized items by category:', categorized)
+  }, [])
+
+  // Get items for current category
+  const getItemsForCategory = useCallback((category: string): RecommendationItem[] => {
+    if (category === 'All') {
+      // Show 1-2 items from each category for variety
+      const allItems: RecommendationItem[] = []
+      availableCategories.forEach(cat => {
+        const itemsInCategory = categorizedItems[cat] || []
+        // Take first 2 items from each category for 'All' view
+        allItems.push(...itemsInCategory.slice(0, 2))
+      })
+      return allItems
+    }
+    
+    return categorizedItems[category] || []
+  }, [categorizedItems, availableCategories])
 
   // Replace a disliked item with a new recommendation
   const replaceDislikedItem = useCallback(async (removedItemId: string): Promise<RecommendationItem | null> => {
@@ -298,13 +347,14 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     
     stepLogger.debug('STEP6', 'Available recommendations count', recommendationsToDisplay.length)
 
-    // Show the first 6 items for selection
-    const itemsToShow = recommendationsToDisplay.slice(0, 6)
-    setDisplayedItems(itemsToShow)
+    if (recommendationsToDisplay.length > 0) {
+      // Organize items by category
+      organizeItemsByCategory(recommendationsToDisplay)
+    }
     
     // Sync with chat context
     syncWithWizard({ formData, currentStep: 6 })
-  }, [formData.selectedItems, formData.cachedRecommendations, getRecommendationsToDisplay, syncWithWizard, formData])
+  }, [formData.selectedItems, formData.cachedRecommendations, getRecommendationsToDisplay, organizeItemsByCategory, syncWithWizard, formData])
 
   // Main effect to fetch recommendations
   useEffect(() => {
@@ -415,6 +465,13 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     }
   }, [displayedItems, fetchFreshRecommendations])
 
+  // Update displayed items when category changes
+  useEffect(() => {
+    const itemsToShow = getItemsForCategory(selectedCategory)
+    setDisplayedItems(itemsToShow)
+    stepLogger.debug('STEP6', `Showing ${itemsToShow.length} items for category: ${selectedCategory}`)
+  }, [selectedCategory, categorizedItems, getItemsForCategory])
+
   const handleNext = () => {
     // Only pass the items that the user has explicitly selected
     const userSelectedItems = displayedItems.filter(item => selectedItems.has(item.id))
@@ -454,6 +511,37 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           Based on your style preferences, here are items curated just for you. Select the ones you'd like to add to your cart.
         </p>
       </div>
+
+      {/* Category Tabs */}
+      {availableCategories.length > 1 && (
+        <div className="mb-6">
+          <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto">
+            <button
+              onClick={() => setSelectedCategory('All')}
+              className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === 'All'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              All Categories
+            </button>
+            {availableCategories.map(category => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {category} ({categorizedItems[category]?.length || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Items List - Compact Cards like Checkout */}
       <div className="space-y-4 mb-8">
