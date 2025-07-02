@@ -52,6 +52,31 @@ export interface RecommendationResponse {
   query_embedding: number[] | null
 }
 
+// V2 API Types
+export interface CategoryResult {
+  items: ProductItem[]
+  total_available: number
+  requested_count: number
+  search_time_ms?: number
+}
+
+export interface DebugInfo {
+  user_selections: string[]
+  categories_found: string[]
+  categories_missing: string[]
+  total_items: number
+  search_mode: string
+  processing_time_ms: number
+}
+
+export interface RecommendationResponseV2 {
+  success: boolean
+  error?: string
+  categories: Record<string, CategoryResult>
+  session_id: string
+  debug_info?: DebugInfo
+}
+
 export interface ChatRequest {
   message: string
   context?: {
@@ -167,6 +192,14 @@ class ApiService {
   // Get recommendations
   async getRecommendations(request: RecommendationRequest): Promise<RecommendationResponse> {
     return this.makeRequest(API_ENDPOINTS.recommendations, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  // Get V2 recommendations with guaranteed category structure
+  async getRecommendationsV2(request: RecommendationRequest): Promise<RecommendationResponseV2> {
+    return this.makeRequest('/recommendations/v2', {
       method: 'POST',
       body: JSON.stringify(request),
     })

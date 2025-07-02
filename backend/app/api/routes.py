@@ -10,6 +10,7 @@ from app.models.requests import (
 )
 from app.models.responses import (
     RecommendationResponse, 
+    RecommendationResponseV2,
     ChatResponse, 
     TryOnResponse, 
     FeedbackResponse, 
@@ -105,6 +106,65 @@ async def get_recommendations(request: RecommendationRequest, recommendation_ser
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to generate recommendations: {str(e)}"
+        )
+
+@router.post("/recommendations/v2", response_model=RecommendationResponseV2)
+async def get_recommendations_v2(request: RecommendationRequest, recommendation_service = Depends(get_recommendation_service)):
+    """
+    V2 Recommendations API with guaranteed category structure and clear error handling
+    
+    This endpoint provides:
+    - Guaranteed return of all requested categories (even if empty)
+    - Clear error messages with no silent failures
+    - Structured response with debug information
+    - Per-category item counts and timing
+    """
+    try:
+        logger.info(f"V2 API: Received recommendation request for {request.user_profile.gender} user")
+        
+        # Validate request
+        if not request.user_profile.preferred_article_types:
+            raise HTTPException(
+                status_code=400,
+                detail="Preferred article types are required for V2 API"
+            )
+        
+        if not request.user_profile.shopping_prompt.strip():
+            raise HTTPException(
+                status_code=400, 
+                detail="Shopping prompt is required"
+            )
+        
+        # Set default items per category if not specified
+        if not request.items_per_category:
+            request.items_per_category = 20
+        
+        # Ensure items_per_category is within reasonable limits
+        if request.items_per_category > 50:
+            request.items_per_category = 50
+        elif request.items_per_category < 1:
+            request.items_per_category = 20
+        
+        # Get V2 recommendations
+        response = await recommendation_service.get_recommendations_v2(request)
+        
+        if response.success:
+            logger.info(f"V2 API: Successfully generated {response.debug_info.total_items} recommendations across {len(response.categories)} categories")
+        else:
+            logger.error(f"V2 API: Failed to generate recommendations: {response.error}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"V2 API: Error in get_recommendations_v2: {e}")
+        # Return structured error response instead of raising HTTPException
+        return RecommendationResponseV2(
+            success=False,
+            error=f"Failed to generate recommendations: {str(e)}",
+            categories={},
+            session_id=str(uuid.uuid4())
         )
 
 @router.post("/chat", response_model=ChatResponse)

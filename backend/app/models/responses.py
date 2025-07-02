@@ -52,4 +52,26 @@ class ErrorResponse(BaseModel):
     error: str = Field(..., description="Error type")
     message: str = Field(..., description="Error message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
-    request_id: Optional[str] = Field(None, description="Request identifier for debugging") 
+    request_id: Optional[str] = Field(None, description="Request identifier for debugging")
+
+# V2 Response Models for improved recommendation system
+class CategoryResult(BaseModel):
+    items: List[ProductItem] = Field(..., description="List of products in this category")
+    total_available: int = Field(..., description="Total number of items found for this category")
+    requested_count: int = Field(..., description="Number of items requested for this category")
+    search_time_ms: Optional[int] = Field(None, description="Time taken to search this category in milliseconds")
+
+class DebugInfo(BaseModel):
+    user_selections: List[str] = Field(..., description="Article types selected by user")
+    categories_found: List[str] = Field(..., description="Categories that returned results")
+    categories_missing: List[str] = Field(..., description="Categories that returned no results")
+    total_items: int = Field(..., description="Total number of items across all categories")
+    search_mode: str = Field(..., description="Search method used: faiss, embedding, or keyword")
+    processing_time_ms: int = Field(..., description="Total processing time in milliseconds")
+
+class RecommendationResponseV2(BaseModel):
+    success: bool = Field(..., description="Whether the request was successful")
+    error: Optional[str] = Field(None, description="Error message if request failed")
+    categories: Dict[str, CategoryResult] = Field(..., description="Results organized by category")
+    session_id: str = Field(..., description="Session identifier for tracking")
+    debug_info: Optional[DebugInfo] = Field(None, description="Debug information for development") 

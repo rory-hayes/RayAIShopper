@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from app.services.vector_service import VectorSearchService
 from app.services.openai_service import OpenAIService
 from app.models.requests import UserProfile, RecommendationRequest, FilterOptions
-from app.models.responses import ProductItem, RecommendationResponse
+from app.models.responses import ProductItem, RecommendationResponse, RecommendationResponseV2, CategoryResult, DebugInfo
 from app.utils.logging import get_logger
 from app.config import settings
 
@@ -405,4 +405,182 @@ class RecommendationService:
             "total_products": self.vector_service.get_total_products(),
             "active_sessions": len(self.session_cache),
             "session_ttl_hours": self.session_ttl / 3600
-        } 
+        }
+
+    async def get_recommendations_v2(self, request: RecommendationRequest) -> RecommendationResponseV2:
+        """
+        V2 API that guarantees category structure and clear error handling
+        """
+        start_time = time.time()
+        
+        try:
+            user_categories = request.user_profile.preferred_article_types
+            if not user_categories:
+                raise ValueError("No article types specified")
+            
+            session_id = request.session_id or str(uuid.uuid4())
+            logger.info(f"V2 API: Processing recommendation request for session {session_id}")
+            logger.info(f"V2 API: User selected categories: {user_categories}")
+            
+            # Initialize response structure
+            result = RecommendationResponseV2(
+                success=True,
+                categories={},
+                session_id=session_id,
+                debug_info=DebugInfo(
+                    user_selections=user_categories,
+                    categories_found=[],
+                    categories_missing=[],
+                    total_items=0,
+                    search_mode=self._get_search_mode(),
+                    processing_time_ms=0
+                )
+            )
+            
+            # Prepare shared search parameters
+            user_profile = request.user_profile
+            exclude_ids = []
+            if request.filters and request.filters.exclude_ids:
+                exclude_ids = request.filters.exclude_ids
+            
+            # Generate query embedding once for all searches
+            search_query = await self.openai_service.create_search_query_from_profile(
+                user_profile=user_profile,
+                inspiration_analysis=None  # V2 focuses on reliability first
+            )
+            query_embedding = await self.openai_service.get_query_embedding(search_query)
+            
+            # Search each category individually
+            for category in user_categories:
+                category_start = time.time()
+                
+                items = await self._search_single_category(
+                    category=category,
+                    request=request,
+                    query_embedding=query_embedding,
+                    search_query=search_query,
+                    exclude_ids=exclude_ids
+                )
+                
+                category_time = int((time.time() - category_start) * 1000)
+                
+                result.categories[category] = CategoryResult(
+                    items=items,
+                    total_available=len(items),
+                    requested_count=request.items_per_category or 20,
+                    search_time_ms=category_time
+                )
+                
+                if items:
+                    result.debug_info.categories_found.append(category)
+                    logger.info(f"V2 API: Found {len(items)} items for category '{category}'")
+                else:
+                    result.debug_info.categories_missing.append(category)
+                    logger.warning(f"V2 API: No items found for category '{category}'")
+            
+            # Calculate totals
+            result.debug_info.total_items = sum(
+                len(cat.items) for cat in result.categories.values()
+            )
+            result.debug_info.processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            logger.info(f"V2 API: Generated {result.debug_info.total_items} total items across {len(result.categories)} categories in {result.debug_info.processing_time_ms}ms")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"V2 API Error: {e}")
+            return RecommendationResponseV2(
+                success=False,
+                error=str(e),
+                categories={},
+                session_id=str(uuid.uuid4())
+            )
+    
+    def _get_search_mode(self) -> str:
+        """
+        Determine which search mode is being used for debugging
+        """
+        if self.vector_service.index is not None:
+            return "faiss"
+        elif hasattr(self.vector_service, 'embedding_model'):
+            return "embedding"
+        else:
+            return "keyword"
+    
+    async def _search_single_category(
+        self,
+        category: str,
+        request: RecommendationRequest,
+        query_embedding: List[float],
+        search_query: str,
+        exclude_ids: List[str]
+    ) -> List[ProductItem]:
+        """
+        Search for items in a single category with proper mapping
+        """
+        try:
+            # Map user-friendly category to database article types
+            db_article_types = self._map_article_type(category)
+            logger.info(f"V2 API: Searching category '{category}' -> database types {db_article_types}")
+            
+            # Search with specific article type filter
+            search_results = await self.vector_service.similarity_search(
+                query_embedding=query_embedding,
+                k=(request.items_per_category or 20) * 2,  # Get more for better filtering
+                exclude_ids=exclude_ids,
+                search_query=search_query,
+                gender_filter=request.user_profile.gender,
+                article_type_filter=db_article_types
+            )
+            
+            # Extract product items
+            category_items = [result[0] for result in search_results]
+            
+            # Enhance recommendations if we have items
+            if category_items:
+                enhanced_items = await self.openai_service.enhance_recommendations(
+                    user_profile=request.user_profile,
+                    recommendations=category_items,
+                    inspiration_analysis=None
+                )
+                # Limit to requested count
+                final_items = enhanced_items[:request.items_per_category or 20]
+            else:
+                final_items = []
+            
+            logger.info(f"V2 API: Category '{category}' search returned {len(final_items)} final items")
+            return final_items
+            
+        except Exception as e:
+            logger.error(f"V2 API: Error searching category '{category}': {e}")
+            return []
+    
+    def _map_article_type(self, user_selection: str) -> List[str]:
+        """
+        Map user-friendly article type selections to database values
+        """
+        mapping = {
+            'Tshirts': ['Tshirts', 'T-Shirts'],
+            'Shirts': ['Shirts'],
+            'Jeans': ['Jeans'],
+            'Casual Shoes': ['Casual Shoes', 'Shoes'],
+            'Sports Shoes': ['Sports Shoes', 'Shoes'],
+            'Formal Shoes': ['Formal Shoes', 'Shoes'],
+            'Sandals': ['Sandals', 'Flip Flops'],
+            'Flip Flops': ['Flip Flops', 'Sandals'],
+            'Shorts': ['Shorts'],
+            'Trousers': ['Trousers'],
+            'Track Pants': ['Track Pants'],
+            'Jackets': ['Jackets'],
+            'Sweaters': ['Sweaters'],
+            'Sweatshirts': ['Sweatshirts'],
+            'Kurtas': ['Kurtas'],
+            'Tops': ['Tops'],
+            'Dresses': ['Dresses'],
+            'Skirts': ['Skirts'],
+            'Leggings': ['Leggings'],
+            'Heels': ['Heels'],
+            'Flats': ['Flats']
+        }
+        return mapping.get(user_selection, [user_selection]) 
