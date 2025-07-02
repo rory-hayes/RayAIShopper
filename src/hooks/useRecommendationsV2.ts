@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { apiService, UserProfile, ProductItem, CategoryResult, DebugInfo, RecommendationResponseV2 } from '../services/api'
 
 interface RecommendationState {
@@ -18,14 +18,26 @@ export const useRecommendationsV2 = (userProfile: UserProfile) => {
     selectedItems: new Set()
   })
 
+  // Memoize userProfile to prevent unnecessary re-renders
+  const stableUserProfile = useMemo(() => userProfile, [
+    userProfile?.shopping_prompt,
+    userProfile?.gender,
+    userProfile?.preferred_styles?.join(','),
+    userProfile?.preferred_colors?.join(','),
+    userProfile?.preferred_article_types?.join(','),
+    userProfile?.age_range,
+    userProfile?.budget_range,
+    userProfile?.body_type
+  ])
+
   const fetchRecommendations = useCallback(async () => {
     setState(prev => ({ ...prev, status: 'loading', error: undefined }))
 
     try {
-      console.log('🔄 V2 Hook: Fetching recommendations for user profile:', userProfile)
+      console.log('🔄 V2 Hook: Fetching recommendations for user profile:', stableUserProfile)
       
       const response = await apiService.getRecommendationsV2({
-        user_profile: userProfile,
+        user_profile: stableUserProfile,
         items_per_category: 20
       })
 
@@ -68,7 +80,7 @@ export const useRecommendationsV2 = (userProfile: UserProfile) => {
       
       console.error('❌ V2 Hook: Fetch error:', error)
     }
-  }, [userProfile])
+  }, [stableUserProfile])
 
   const selectCategory = useCallback((category: string) => {
     setState(prev => ({ ...prev, selectedCategory: category }))
@@ -108,12 +120,12 @@ export const useRecommendationsV2 = (userProfile: UserProfile) => {
     }
   }, [state.categories])
 
-  // Auto-fetch when userProfile changes
+  // Auto-fetch when userProfile changes (but only once per profile change)
   useEffect(() => {
-    if (userProfile && userProfile.preferred_article_types?.length > 0) {
+    if (stableUserProfile && stableUserProfile.preferred_article_types?.length > 0) {
       fetchRecommendations()
     }
-  }, [fetchRecommendations])
+  }, [stableUserProfile, fetchRecommendations])
 
   return {
     ...state,
