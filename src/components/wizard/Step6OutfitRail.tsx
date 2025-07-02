@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Clock, Sparkles, RotateCcw, ShoppingBag, X, Eye, RefreshCw, Heart, Check, Loader2, ChevronRight, ChevronLeft, ThumbsDown } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useWizard } from '../../contexts/WizardContext'
@@ -48,8 +48,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
   const { formData, updateFormData } = useWizard()
   const { setSessionId, syncWithWizard } = useChatContext()
   
-  // Core state - simplified
-  const [allRecommendations, setAllRecommendations] = useState<RecommendationItem[]>([])
+  // Core state
+  const [displayedItems, setDisplayedItems] = useState<RecommendationItem[]>([])
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [showTryOnModal, setShowTryOnModal] = useState(false)
@@ -58,10 +58,13 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     selfieBase64: string
   } | null>(null)
   
-  // Category state - simplified
+  // Category organization state
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [categorizedItems, setCategorizedItems] = useState<Record<string, RecommendationItem[]>>({})
   const [availableCategories, setAvailableCategories] = useState<string[]>([])
+  
+  // State for refreshing functionality
+  const [refreshCount, setRefreshCount] = useState(0)
   
   // Interaction states
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
@@ -104,7 +107,6 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     })
     
     setCategorizedItems(categorized)
-    setAllRecommendations(items)
     
     // Get available categories (only those with items)
     const categories = Object.keys(categorized).sort()
@@ -136,17 +138,13 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     return categorizedItems[category] || []
   }, [categorizedItems, availableCategories])
 
-  // Get the items to display based on current category
-  const displayedItems = useMemo(() => {
-    return getItemsForCategory(selectedCategory)
-  }, [selectedCategory, getItemsForCategory])
-
   // Replace a disliked item with a new recommendation
   const replaceDislikedItem = useCallback(async (removedItemId: string): Promise<RecommendationItem | null> => {
     stepLogger.info('STEP6', 'Attempting to replace item', removedItemId)
     
     const recommendations = getRecommendationsToDisplay()
-    const availableForRotation = recommendations.filter(item => item.id !== removedItemId)
+    const displayedIds = new Set(displayedItems.map(item => item.id))
+    const availableForRotation = recommendations.filter(item => !displayedIds.has(item.id))
     
     stepLogger.debug('STEP6', 'Available for rotation count', availableForRotation.length)
     
@@ -175,7 +173,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     }
     
     // Last resort: check for ANY non-displayed items
-    const allDisplayedIds = new Set(selectedItems)
+    const allRecommendations = [...(formData.selectedItems || []), ...(formData.cachedRecommendations || [])]
+    const allDisplayedIds = new Set(displayedItems.map(item => item.id))
     const fallbackItems = allRecommendations.filter(item => !allDisplayedIds.has(item.id))
     
     if (fallbackItems.length > 0) {
@@ -186,7 +185,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     
     stepLogger.error('STEP6', 'No replacement items available')
     return null
-  }, [selectedItems, formData.sessionId, getRecommendationsToDisplay])
+  }, [displayedItems, formData.sessionId, formData.selectedItems, formData.cachedRecommendations, getRecommendationsToDisplay])
 
   // Fetch fresh recommendations from API
   const fetchFreshRecommendations = useCallback(async (excludeIds: string[] = []): Promise<RecommendationItem[]> => {
@@ -263,20 +262,19 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
       const replacementItem = await replaceDislikedItem(item.id)
       
       if (replacementItem) {
-        // Update allRecommendations to include the new item and exclude the disliked one
-        const updatedItems = allRecommendations.filter(i => i.id !== item.id).concat([replacementItem])
-        setAllRecommendations(updatedItems)
-        
-        // Reorganize categories with the updated items
-        organizeItemsByCategory(updatedItems)
+        // Update displayed items
+        setDisplayedItems(prev => 
+          prev.map(displayedItem => 
+            displayedItem.id === item.id ? replacementItem : displayedItem
+          )
+        )
         
         // Update formData to include the new item and exclude the disliked one
-        const currentSelectedItems = formData.selectedItems || []
-        const updatedSelectedItems = currentSelectedItems
+        const updatedItems = (formData.selectedItems || [])
           .filter(selectedItem => selectedItem.id !== item.id)
           .concat([replacementItem])
         
-        updateFormData({ selectedItems: updatedSelectedItems })
+        updateFormData({ selectedItems: updatedItems })
       } else {
         stepLogger.error('STEP6', 'Replacement failed, keeping item visible')
       }
@@ -285,7 +283,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     } finally {
       setIsReplacingItem(null)
     }
-  }, [handleFeedback, replaceDislikedItem, selectedItems, updateFormData, allRecommendations])
+  }, [handleFeedback, replaceDislikedItem, formData.selectedItems, updateFormData])
 
   // Handle virtual try-on
   const handleTryOn = useCallback(async (itemId: string) => {
@@ -441,41 +439,42 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
 
   // Handle "More Options" - refresh some items
   const handleMoreOptions = useCallback(async () => {
-    if (allRecommendations.length === 0) return
+    if (displayedItems.length === 0) return
     
-    const idsToReplace = allRecommendations.slice(0, 2).map(item => item.id) // Replace first 2 items
+    const idsToReplace = displayedItems.slice(0, 2).map(item => item.id) // Replace first 2 items
     stepLogger.info('STEP6', 'Replacing items', idsToReplace)
+    
+    setRefreshCount(prev => prev + 1)
     
     try {
       const freshItems = await fetchFreshRecommendations(idsToReplace)
       
       if (freshItems.length > 0) {
-        const updatedItems = [...allRecommendations]
-        freshItems.forEach((freshItem, index) => {
-          const replaceIndex = updatedItems.findIndex(item => item.id === idsToReplace[index])
-          if (replaceIndex !== -1) {
-            updatedItems[replaceIndex] = freshItem
-          }
+        setDisplayedItems(prev => {
+          const updated = [...prev]
+          freshItems.forEach((freshItem, index) => {
+            if (index < 2) { // Replace first 2 items
+              updated[index] = freshItem
+            }
+          })
+          return updated
         })
-        
-        setAllRecommendations(updatedItems)
-        
-        // Reorganize categories with the updated items
-        organizeItemsByCategory(updatedItems)
-        
-        // Update formData
-        updateFormData({ selectedItems: updatedItems })
-        
-        stepLogger.info('STEP6', 'Successfully refreshed items')
       }
     } catch (error) {
       stepLogger.error('STEP6', 'Error in handleMoreOptions', error)
     }
-  }, [allRecommendations, fetchFreshRecommendations, organizeItemsByCategory, updateFormData])
+  }, [displayedItems, fetchFreshRecommendations])
+
+  // Update displayed items when category changes
+  useEffect(() => {
+    const itemsToShow = getItemsForCategory(selectedCategory)
+    setDisplayedItems(itemsToShow)
+    stepLogger.debug('STEP6', `Showing ${itemsToShow.length} items for category: ${selectedCategory}`)
+  }, [selectedCategory, categorizedItems, getItemsForCategory])
 
   const handleNext = () => {
     // Only pass the items that the user has explicitly selected
-    const userSelectedItems = allRecommendations.filter(item => selectedItems.has(item.id))
+    const userSelectedItems = displayedItems.filter(item => selectedItems.has(item.id))
     
     stepLogger.info('STEP6', 'User selected items for checkout', {
       totalDisplayed: displayedItems.length,
@@ -499,7 +498,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     )
   }
 
-    return (
+  return (
     <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
       <div className="text-center mb-8">
         <div className="flex items-center justify-center mb-4">
@@ -528,7 +527,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
               All Categories
             </button>
             {availableCategories.map(category => (
-              <button
+          <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
                 className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -540,7 +539,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                 {category} ({categorizedItems[category]?.length || 0})
               </button>
             ))}
-          </div>
+            </div>
         </div>
       )}
 
@@ -550,9 +549,9 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow duration-200">
             <div className="flex gap-4">
               <div className="relative">
-                <img
-                  src={item.image}
-                  alt={item.name}
+            <img
+              src={item.image}
+              alt={item.name}
                   className="w-16 h-16 object-cover rounded-lg"
                   onError={(e) => {
                     e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
@@ -592,7 +591,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
               {/* Thumbs Up */}
-              <button
+                <button
                 onClick={() => handleFeedback(item, 'like')}
                 className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
                   likedItems.has(item.id) 
@@ -601,10 +600,10 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                 }`}
               >
                 <Heart className={`h-4 w-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
-              </button>
-
+                </button>
+                
               {/* Thumbs Down / Replace */}
-              <button
+                <button
                 onClick={() => handleDislike(item)}
                 disabled={isReplacingItem === item.id}
                 className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
@@ -622,10 +621,10 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                 className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
               >
                 <Eye className="h-4 w-4" />
-              </button>
-              
+                </button>
+                
               {/* Add to Cart */}
-              <button
+                <button
                 onClick={() => handleSelectItem(item.id)}
                 className={`flex-1 flex items-center justify-center py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                   selectedItems.has(item.id)
@@ -635,7 +634,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
               >
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 {selectedItems.has(item.id) ? 'Added' : 'Add to Cart'}
-              </button>
+                </button>
             </div>
           </div>
         ))}
