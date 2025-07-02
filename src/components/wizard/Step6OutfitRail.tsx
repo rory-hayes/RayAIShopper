@@ -125,17 +125,19 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
   // Get items for current category
   const getItemsForCategory = useCallback((category: string): RecommendationItem[] => {
     if (category === 'All') {
-      // Show 1-2 items from each category for variety
+      // Show first 3 items from each category for variety in 'All' view
       const allItems: RecommendationItem[] = []
       availableCategories.forEach(cat => {
         const itemsInCategory = categorizedItems[cat] || []
-        // Take first 2 items from each category for 'All' view
-        allItems.push(...itemsInCategory.slice(0, 2))
+        // Take first 3 items from each category for 'All' view
+        allItems.push(...itemsInCategory.slice(0, 3))
       })
       return allItems
     }
     
-    return categorizedItems[category] || []
+    // Show first 6 items for individual categories (out of 20 available)
+    const categoryItems = categorizedItems[category] || []
+    return categoryItems.slice(0, 6)
   }, [categorizedItems, availableCategories])
 
   // Replace a disliked item with a new recommendation
@@ -386,7 +388,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
         }
 
         const response = await apiService.getRecommendations({
-          user_profile: userProfile
+          user_profile: userProfile,
+          items_per_category: 20 // Request 20 items per article type
         })
         
         stepLogger.info('STEP6', 'Received recommendations count', response.recommendations.length)
@@ -437,33 +440,43 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     fetchRecommendations()
   }, [formData.shoppingPrompt, formData.gender, formData.preferredStyles, formData.preferredColors, formData.preferredArticleTypes, updateFormData, setSessionId, formData.cachedRecommendations, formData.selectedItems, formData.hasLoadedRecommendations])
 
-  // Handle "More Options" - refresh some items
+  // Handle "More Options" - refresh some items in current category
   const handleMoreOptions = useCallback(async () => {
-    if (displayedItems.length === 0) return
-    
-    const idsToReplace = displayedItems.slice(0, 2).map(item => item.id) // Replace first 2 items
-    stepLogger.info('STEP6', 'Replacing items', idsToReplace)
-    
-    setRefreshCount(prev => prev + 1)
-    
-    try {
-      const freshItems = await fetchFreshRecommendations(idsToReplace)
-      
-      if (freshItems.length > 0) {
-        setDisplayedItems(prev => {
-          const updated = [...prev]
-          freshItems.forEach((freshItem, index) => {
-            if (index < 2) { // Replace first 2 items
-              updated[index] = freshItem
-            }
-          })
-          return updated
-        })
-      }
-    } catch (error) {
-      stepLogger.error('STEP6', 'Error in handleMoreOptions', error)
+    if (selectedCategory === 'All') {
+      // For 'All' view, refresh 1 item from each category
+      const allItems = getRecommendationsToDisplay()
+      organizeItemsByCategory(allItems) // Re-organize to refresh display
+      return
     }
-  }, [displayedItems, fetchFreshRecommendations])
+
+    // For specific category, cycle through more items from that category
+    const categoryItems = categorizedItems[selectedCategory] || []
+    if (categoryItems.length > 6) {
+      // Rotate items: move first 3 to end, show next 3
+      const rotatedItems = [...categoryItems.slice(3), ...categoryItems.slice(0, 3)]
+      setCategorizedItems(prev => ({
+        ...prev,
+        [selectedCategory]: rotatedItems
+      }))
+      stepLogger.info('STEP6', `Rotated items in category: ${selectedCategory}`)
+    } else {
+      // If less than 6 items, try to fetch fresh ones from API
+      try {
+        const idsToReplace = displayedItems.slice(0, 2).map(item => item.id)
+        const freshItems = await fetchFreshRecommendations(idsToReplace)
+        
+        if (freshItems.length > 0) {
+          // Add fresh items to current category
+          setCategorizedItems(prev => ({
+            ...prev,
+            [selectedCategory]: [...(prev[selectedCategory] || []), ...freshItems]
+          }))
+        }
+      } catch (error) {
+        stepLogger.error('STEP6', 'Error in handleMoreOptions', error)
+      }
+    }
+  }, [selectedCategory, categorizedItems, displayedItems, fetchFreshRecommendations, getRecommendationsToDisplay, organizeItemsByCategory])
 
   // Update displayed items when category changes
   useEffect(() => {
@@ -536,7 +549,7 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                {category} ({categorizedItems[category]?.length || 0})
+                {category}
               </button>
             ))}
             </div>

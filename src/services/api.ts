@@ -33,9 +33,16 @@ export interface ProductItem {
 }
 
 export interface RecommendationRequest {
-  user_profile: UserProfile
-  inspiration_images?: string[] // base64 encoded images
+  user_profile: {
+    shopping_prompt: string
+    gender: string
+    preferred_styles?: string[]
+    preferred_colors?: string[]
+    preferred_article_types?: string[]
+  }
+  inspiration_images?: string[]
   exclude_ids?: string[]
+  items_per_category?: number
 }
 
 export interface RecommendationResponse {
