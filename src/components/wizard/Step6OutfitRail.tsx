@@ -99,7 +99,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     const categorized: Record<string, RecommendationItem[]> = {}
     
     items.forEach(item => {
-      const category = item.category || 'Other'
+      // Use article_type for categorization instead of category (which is masterCategory)
+      const category = item.article_type || item.category || 'Other'
       if (!categorized[category]) {
         categorized[category] = []
       }
@@ -119,7 +120,8 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
       setSelectedCategory(categories[0])
     }
     
-    stepLogger.debug('STEP6', 'Organized items by category:', categorized)
+    stepLogger.debug('STEP6', 'Organized items by article_type:', categorized)
+    stepLogger.debug('STEP6', 'Available categories:', categories)
   }, [])
 
   // Get items for current category
@@ -147,6 +149,13 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
     const recommendations = getRecommendationsToDisplay()
     const displayedIds = new Set(displayedItems.map(item => item.id))
     const availableForRotation = recommendations.filter(item => !displayedIds.has(item.id))
+    
+    stepLogger.debug('STEP6', 'Replacement Details:', {
+      totalRecommendations: recommendations.length,
+      displayedCount: displayedItems.length,
+      availableForRotation: availableForRotation.length,
+      sessionId: formData.sessionId
+    })
     
     stepLogger.debug('STEP6', 'Available for rotation count', availableForRotation.length)
     
@@ -207,18 +216,18 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
         return freshResponse.map((item: any) => ({
           id: item.id || `fresh-${Date.now()}-${Math.random()}`,
           name: item.name || 'Fresh Recommendation',
-          category: item.category || 'Unknown',
+          category: item.masterCategory || item.category || 'Unknown',
           price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
           image: item.image_url || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop&crop=center',
           description: item.description || 'Fresh recommendation based on your preferences',
           inStock: item.inStock !== false,
           storeLocation: item.store_location || 'Available online',
           similarity_score: item.similarity_score || 0.8,
-          article_type: item.article_type || item.category,
+          article_type: item.articleType || item.article_type || item.subCategory || 'Unknown',
           color: item.color || 'Multi',
           usage: item.usage || 'General'
         }))
-    } else {
+      } else {
         stepLogger.error('STEP6', 'No fresh items available from API')
         return []
       }
@@ -386,10 +395,34 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           preferred_colors: formData.preferredColors,
           preferred_article_types: formData.preferredArticleTypes
         }
+        
+        stepLogger.info('STEP6', 'Sending API Request:', {
+          userProfile,
+          itemsPerCategory: 20
+        })
 
         const response = await apiService.getRecommendations({
           user_profile: userProfile,
           items_per_category: 20 // Request 20 items per article type
+        })
+        
+        stepLogger.info('STEP6', 'API Response Details:', {
+          totalRecommendations: response.recommendations.length,
+          sessionId: response.session_id,
+          firstItemStructure: response.recommendations[0] || null
+        })
+        
+        // Debug: Log the structure of the first few items
+        response.recommendations.slice(0, 3).forEach((item: any, index: number) => {
+          stepLogger.debug('STEP6', `API Item ${index + 1} Raw Structure:`, {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            masterCategory: item.masterCategory,
+            subCategory: item.subCategory,
+            article_type: item.article_type,
+            articleType: item.articleType
+          })
         })
         
         stepLogger.info('STEP6', 'Received recommendations count', response.recommendations.length)
@@ -398,17 +431,26 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
         const processedRecommendations = response.recommendations.map((item: any, index: number) => ({
           id: item.id || `rec-${Date.now()}-${index}`,
           name: item.name || 'Recommended Item',
-          category: item.category || 'Unknown',
+          category: item.masterCategory || item.category || 'Unknown',
           price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
           image: item.image_url || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop&crop=center',
           description: item.description || 'Recommended based on your preferences',
           inStock: item.inStock !== false,
           storeLocation: item.store_location || 'Available online',
           similarity_score: item.similarity_score || 0.9,
-          article_type: item.article_type || item.category,
+          article_type: item.articleType || item.article_type || item.subCategory || 'Unknown',
           color: item.color || 'Multi',
           usage: item.usage || 'General'
         }))
+
+        // Debug processed items
+        stepLogger.debug('STEP6', 'First 3 Processed Items:', 
+          processedRecommendations.slice(0, 3).map(item => ({
+            name: item.name,
+            category: item.category,
+            article_type: item.article_type
+          }))
+        )
 
         // Update form data with recommendations and session ID
         updateFormData({ 

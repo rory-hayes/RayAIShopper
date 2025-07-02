@@ -38,6 +38,7 @@ class RecommendationRequest(BaseModel):
     inspiration_images: List[str] = Field(default=[], description="Base64 encoded inspiration images")
     filters: Optional[FilterOptions] = None
     top_k: int = Field(default=20, description="Number of recommendations to return")
+    items_per_category: Optional[int] = Field(None, description="Number of items to return per article type category")
     session_id: Optional[str] = Field(None, description="Session identifier for tracking")
 
 class ChatMessage(BaseModel):

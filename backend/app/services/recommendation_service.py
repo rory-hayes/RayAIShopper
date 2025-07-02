@@ -115,27 +115,67 @@ class RecommendationService:
             if request.filters and request.filters.exclude_ids:
                 exclude_ids = request.filters.exclude_ids
             
-            search_results = await self.vector_service.similarity_search(
-                query_embedding=query_embedding,
-                k=request.top_k * 2,  # Get more results for better filtering
-                exclude_ids=exclude_ids,
-                search_query=search_query,
-                gender_filter=user_profile.gender,
-                article_type_filter=user_profile.preferred_article_types
-            )
-            
-            # Step 6: Extract product items from search results
-            product_items = [result[0] for result in search_results]
-            
-            # Step 7: Enhance recommendations with GPT-4o mini for better ranking
-            final_recommendations = await self.openai_service.enhance_recommendations(
-                user_profile=user_profile,
-                recommendations=product_items,
-                inspiration_analysis=inspiration_analysis
-            )
-            
-            # Limit to requested number
-            final_recommendations = final_recommendations[:request.top_k]
+            # Check if we need items per category or total items
+            if request.items_per_category and user_profile.preferred_article_types:
+                logger.info(f"Getting {request.items_per_category} items per category for {len(user_profile.preferred_article_types)} categories")
+                
+                # Get items for each preferred article type separately
+                all_recommendations = []
+                for article_type in user_profile.preferred_article_types:
+                    logger.info(f"Searching for {request.items_per_category} items of type: {article_type}")
+                    
+                    search_results = await self.vector_service.similarity_search(
+                        query_embedding=query_embedding,
+                        k=request.items_per_category * 2,  # Get more for better filtering
+                        exclude_ids=exclude_ids,
+                        search_query=search_query,
+                        gender_filter=user_profile.gender,
+                        article_type_filter=[article_type]  # Search for this specific type only
+                    )
+                    
+                    # Extract product items from search results for this category
+                    category_items = [result[0] for result in search_results]
+                    
+                    # Enhance recommendations for this category
+                    enhanced_category_items = await self.openai_service.enhance_recommendations(
+                        user_profile=user_profile,
+                        recommendations=category_items,
+                        inspiration_analysis=inspiration_analysis
+                    )
+                    
+                    # Limit to requested number per category
+                    final_category_items = enhanced_category_items[:request.items_per_category]
+                    all_recommendations.extend(final_category_items)
+                    
+                    logger.info(f"Got {len(final_category_items)} items for {article_type}")
+                
+                final_recommendations = all_recommendations
+                total_available = len(all_recommendations)
+                
+            else:
+                # Original logic for total item count
+                search_results = await self.vector_service.similarity_search(
+                    query_embedding=query_embedding,
+                    k=request.top_k * 2,  # Get more results for better filtering
+                    exclude_ids=exclude_ids,
+                    search_query=search_query,
+                    gender_filter=user_profile.gender,
+                    article_type_filter=user_profile.preferred_article_types
+                )
+                
+                # Step 6: Extract product items from search results
+                product_items = [result[0] for result in search_results]
+                
+                # Step 7: Enhance recommendations with GPT-4o mini for better ranking
+                final_recommendations = await self.openai_service.enhance_recommendations(
+                    user_profile=user_profile,
+                    recommendations=product_items,
+                    inspiration_analysis=inspiration_analysis
+                )
+                
+                # Limit to requested number
+                final_recommendations = final_recommendations[:request.top_k]
+                total_available = len(search_results)
             
             # Step 8: Cache session data for future requests (with TTL)
             session_data = {
@@ -156,7 +196,7 @@ class RecommendationService:
             # Step 9: Create response
             response = RecommendationResponse(
                 recommendations=final_recommendations,
-                total_available=len(search_results),
+                total_available=total_available,
                 session_id=session_id,
                 query_embedding=query_embedding if settings.environment == "development" else None
             )
