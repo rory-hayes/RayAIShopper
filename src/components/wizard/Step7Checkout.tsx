@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { StoreMapModal } from '../ui/StoreMapModal'
-import { MapPin, ShoppingBag, CreditCard, Store } from 'lucide-react'
+import { MapPin, ShoppingBag, CreditCard, Store, Star, MessageSquare } from 'lucide-react'
 import { stepLogger } from '../../utils/logger'
 
 export const Step7Checkout: React.FC = () => {
@@ -11,6 +11,12 @@ export const Step7Checkout: React.FC = () => {
   const [showStoreMap, setShowStoreMap] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'store' | 'online'>('store')
+  
+  // Review state
+  const [rating, setRating] = useState(0)
+  const [hoveredRating, setHoveredRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [hasSubmittedReview, setHasSubmittedReview] = useState(false)
   
   // Check if we have a storeID parameter (would come from QR code)
   const urlParams = new URLSearchParams(window.location.search)
@@ -50,6 +56,54 @@ export const Step7Checkout: React.FC = () => {
 
   const handleNewSession = () => {
     resetWizard()
+  }
+
+  const handleSubmitReview = () => {
+    if (rating === 0) {
+      alert('Please select a rating before submitting')
+      return
+    }
+    
+    // In a real app, this would submit to backend
+    console.log('Review submitted:', { rating, comment: reviewComment })
+    setHasSubmittedReview(true)
+    
+    // Show success message
+    setTimeout(() => {
+      alert('Thank you for your review!')
+    }, 100)
+  }
+
+  const renderStarRating = () => {
+    return (
+      <div className="flex items-center gap-1 mb-4">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setRating(star)}
+            onMouseEnter={() => setHoveredRating(star)}
+            onMouseLeave={() => setHoveredRating(0)}
+            className="p-1 transition-colors"
+            disabled={hasSubmittedReview}
+          >
+            <Star
+              className={`h-8 w-8 transition-colors ${
+                star <= (hoveredRating || rating)
+                  ? 'text-yellow-400 fill-yellow-400'
+                  : 'text-gray-300'
+              } ${hasSubmittedReview ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
+            />
+          </button>
+        ))}
+        <span className="ml-2 text-sm text-gray-600">
+          {rating > 0 && (
+            <>
+              {rating} out of 5 star{rating !== 1 ? 's' : ''}
+            </>
+          )}
+        </span>
+      </div>
+    )
   }
 
   if (selectedItems.length === 0) {
@@ -166,18 +220,7 @@ export const Step7Checkout: React.FC = () => {
             ))}
           </div>
 
-          {/* Store Navigation Help */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Store Navigation Tips</h3>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Use the store map near the entrance</li>
-              <li>• Ask any associate for directions</li>
-              <li>• Items are organized by department and level</li>
-              <li>• Fitting rooms are available on each level</li>
-            </ul>
-          </div>
-
-          {/* Store Actions */}
+          {/* View Store Map Button - Moved above review section */}
           <div className="space-y-4">
             <Button
               onClick={() => setShowStoreMap(true)}
@@ -188,6 +231,61 @@ export const Step7Checkout: React.FC = () => {
               <MapPin className="h-5 w-5 mr-2" />
               View Store Map
             </Button>
+          </div>
+
+          {/* Review Section - Replaces Store Navigation Tips */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center mb-3">
+              <MessageSquare className="h-5 w-5 mr-2 text-gray-700" />
+              <h3 className="font-medium text-gray-900">Rate Your Experience</h3>
+            </div>
+            
+            {!hasSubmittedReview ? (
+              <>
+                <p className="text-sm text-gray-600 mb-4">
+                  How was your Ray AI shopping experience?
+                </p>
+                
+                {renderStarRating()}
+                
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tell us about your experience (optional)"
+                  className="w-full p-3 border border-gray-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  maxLength={500}
+                />
+                
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-xs text-gray-500">
+                    {reviewComment.length}/500 characters
+                  </span>
+                  <Button
+                    onClick={handleSubmitReview}
+                    size="sm"
+                    disabled={rating === 0}
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Submit Review
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <div className="flex justify-center mb-2">
+                  {renderStarRating()}
+                </div>
+                <p className="text-sm text-green-600 font-medium">
+                  Thank you for your feedback!
+                </p>
+                {reviewComment && (
+                  <p className="text-sm text-gray-600 mt-2 italic">
+                    "{reviewComment}"
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (
