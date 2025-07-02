@@ -14,10 +14,20 @@ export const WizardContainer: React.FC = () => {
   const { currentStep, nextStep } = useWizard()
   
   // Feature flag for V2 recommendations
-  const useV2Recommendations = 
-    process.env.REACT_APP_USE_RECOMMENDATIONS_V2 === 'true' ||
-    localStorage.getItem('useRecommendationsV2') === 'true' ||
-    new URLSearchParams(window.location.search).get('v2') === 'true'
+  const envFlag = process.env.REACT_APP_USE_RECOMMENDATIONS_V2 === 'true'
+  const localStorageFlag = localStorage.getItem('useRecommendationsV2') === 'true'
+  const urlFlag = new URLSearchParams(window.location.search).get('v2') === 'true'
+  const useV2Recommendations = envFlag || localStorageFlag || urlFlag
+  
+  // Debug logging
+  console.log('🚀 V2 Feature Flag Check:', {
+    envFlag,
+    localStorageFlag,
+    urlFlag,
+    useV2Recommendations,
+    currentStep,
+    nodeEnv: process.env.NODE_ENV
+  })
   
   const renderStep = () => {
     switch (currentStep) {
@@ -32,6 +42,7 @@ export const WizardContainer: React.FC = () => {
       case 5:
         return <Step5AIWorking />
       case 6:
+        console.log('🎯 Rendering Step 6:', useV2Recommendations ? 'V2' : 'V1')
         return useV2Recommendations 
           ? <Step6RecommendationsV2 onNext={nextStep} />
           : <Step6OutfitRail onNext={nextStep} />
@@ -54,8 +65,8 @@ export const WizardContainer: React.FC = () => {
         />
       </div>
       
-      {/* V2 Feature Indicator (Development Only) */}
-      {useV2Recommendations && process.env.NODE_ENV === 'development' && (
+      {/* V2 Feature Indicator (Always show when V2 is active) */}
+      {useV2Recommendations && (
         <div className="bg-blue-600 text-white text-center py-1 text-xs">
           🚀 Using V2 Recommendations API
         </div>
