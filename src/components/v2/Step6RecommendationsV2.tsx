@@ -1,42 +1,150 @@
-import React from 'react'
-import { Check } from 'lucide-react'
+import React, { useState, useCallback } from 'react'
+import { Heart, ThumbsDown, Eye, ShoppingBag, Check, Loader2, RefreshCw, ChevronRight, Sparkles } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useWizard } from '../../contexts/WizardContext'
+import { useChatContext } from '../../contexts/ChatContext'
 import { convertToUserProfile, ProductItem } from '../../services/api'
 import { useRecommendationsV2 } from '../../hooks/useRecommendationsV2'
 import { LoadingView } from './LoadingView'
 import { ErrorView } from './ErrorView'
 import { EmptyView } from './EmptyView'
+import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
 
 interface Step6Props {
   onNext: () => void
 }
 
 export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
-  const { formData } = useWizard()
+  const { formData, updateFormData } = useWizard()
+  const { setSessionId } = useChatContext()
   const userProfile = convertToUserProfile(formData)
+  
+  // Local state for interactions
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
+  const [isReplacingItem, setIsReplacingItem] = useState<string | null>(null)
+  const [showTryOnModal, setShowTryOnModal] = useState(false)
+  const [tryOnData, setTryOnData] = useState<{
+    item: ProductItem
+    selfieBase64: string
+  } | null>(null)
   
   const { 
     status, 
     categories, 
     selectedCategory, 
-    selectedItems,
     error, 
     debugInfo,
     retry, 
     selectCategory, 
-    toggleItem,
     getDisplayItems,
     totalItems,
     categoryNames,
-    hasItems,
-    selectedCount
+    hasItems
   } = useRecommendationsV2(userProfile)
+
+  // Handle item feedback
+  const handleFeedback = useCallback(async (item: ProductItem, action: 'like' | 'dislike') => {
+    try {
+      // Update local state immediately for better UX
+      if (action === 'like') {
+        setLikedItems(prev => new Set([...prev, item.id]))
+      }
+      
+      // TODO: Send feedback to backend when available
+      console.log(`V2: User ${action}d item:`, item.name)
+    } catch (error) {
+      console.error('V2: Error handling feedback', error)
+    }
+  }, [])
+
+  // Handle dislike with item replacement (simplified for V2)
+  const handleDislike = useCallback(async (item: ProductItem) => {
+    console.log('V2: User disliked item', item.name)
+    
+    setIsReplacingItem(item.id)
+    
+    try {
+      // Send dislike feedback
+      await handleFeedback(item, 'dislike')
+      
+      // For V2, we'll just show the dislike feedback without replacement
+      // since we have reliable category-based results
+      setTimeout(() => {
+        setIsReplacingItem(null)
+      }, 1000)
+      
+    } catch (error) {
+      console.error('V2: Error in handleDislike', error)
+      setIsReplacingItem(null)
+    }
+  }, [handleFeedback])
+
+  // Handle virtual try-on
+  const handleTryOn = useCallback(async (item: ProductItem) => {
+    console.log('V2: handleTryOn called for item', item.name)
+    
+    if (!formData.selfieImage) {
+      alert('Please upload a selfie in Step 4 to use the virtual try-on feature!')
+      return
+    }
+    
+    // Convert selfie to base64
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Data = e.target?.result as string
+      
+      setTryOnData({
+        item,
+        selfieBase64: base64Data
+      })
+      
+      setShowTryOnModal(true)
+    }
+    reader.readAsDataURL(formData.selfieImage)
+  }, [formData.selfieImage])
+
+  // Handle item selection for checkout
+  const handleSelectItem = useCallback((itemId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+      }
+      return newSet
+    })
+  }, [])
 
   // Handle continue to next step
   const handleNext = () => {
-    if (selectedCount > 0) {
-      console.log('✅ V2 Component: Proceeding with selected items:', Array.from(selectedItems))
+    if (selectedItems.size > 0) {
+      // Get the actual selected items to pass to checkout
+      const allItems = categoryNames.flatMap(cat => categories[cat]?.items || [])
+      const userSelectedItems = allItems.filter(item => selectedItems.has(item.id))
+      
+      console.log('✅ V2 Component: Proceeding with selected items:', userSelectedItems)
+      
+      // Convert ProductItem to RecommendationItem format for compatibility
+      const formattedItems = userSelectedItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        category: item.category || item.article_type || 'Unknown',
+        price: 0, // ProductItem doesn't have price, set default
+        image: item.image_url,
+        description: `${item.article_type} in ${item.color}`, // Generate description from available fields
+        inStock: true,
+        storeLocation: item.store_location || 'Available online',
+        similarity_score: item.similarity_score || 0.9,
+        article_type: item.article_type,
+        color: item.color,
+        usage: item.usage || 'General'
+      }))
+      
+      // Update formData with selected items
+      updateFormData({ selectedItems: formattedItems })
+      
       onNext()
     }
   }
@@ -44,9 +152,14 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
   // Handle simplified search fallback
   const handleSimplifiedSearch = () => {
     console.log('🔄 V2 Component: Switching to simplified search mode')
-    // Could implement a fallback to the original API or simplified search
     retry()
   }
+
+  // Handle more options (refresh categories)
+  const handleMoreOptions = useCallback(() => {
+    console.log('V2: Refreshing recommendations')
+    retry()
+  }, [retry])
 
   // Render loading state
   if (status === 'loading') {
@@ -75,213 +188,208 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
     )
   }
 
+  // Get items to display based on selected category
+  const displayedItems = getDisplayItems(selectedCategory)
+
   // Render success state with recommendations
   return (
-    <div className="max-w-md mx-auto px-6 py-8">
+    <div className="max-w-md mx-auto px-6 py-8 animate-fade-in">
       {/* Header */}
-      <Header 
-        totalItems={totalItems}
-        categoryCount={categoryNames.length}
-        selectedCount={selectedCount}
-      />
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-3 rounded-full">
+            <Sparkles className="h-6 w-6 text-white" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-light text-gray-900 mb-4">Your Personalized Recommendations</h1>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Based on your style preferences, here are items curated just for you. Select the ones you'd like to add to your cart.
+        </p>
+        {selectedItems.size > 0 && (
+          <p className="text-sm text-blue-600 mt-2">
+            {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
+          </p>
+        )}
+      </div>
       
       {/* Category Tabs */}
-      <CategoryTabs 
-        categories={categoryNames}
-        categoriesData={categories}
-        selected={selectedCategory}
-        onSelect={selectCategory}
-      />
+      {categoryNames.length > 1 && (
+        <div className="mb-6">
+          <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto">
+            <button
+              onClick={() => selectCategory('all')}
+              className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedCategory === 'all'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              All Categories
+            </button>
+            {categoryNames.map(category => (
+              <button
+                key={category}
+                onClick={() => selectCategory(category)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {category} ({categories[category]?.items.length || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       
-      {/* Items Grid */}
-      <ItemGrid 
-        items={getDisplayItems(selectedCategory)}
-        selectedItems={selectedItems}
-        onToggleItem={toggleItem}
-      />
+      {/* Items List - Same layout as V1 (horizontal cards like checkout) */}
+      <div className="space-y-4 mb-8">
+        {displayedItems.map((item) => (
+          <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow duration-200">
+            <div className="flex gap-4">
+              <div className="relative">
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="w-16 h-16 object-cover rounded-lg"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.pexels.com/photos/1462637/pexels-photo-1462637.jpeg?auto=compress&cs=tinysrgb&w=400'
+                  }}
+                />
+                
+                {/* Loading overlay for item being replaced */}
+                {isReplacingItem === item.id && (
+                  <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                  </div>
+                )}
+
+                {/* Selection indicator */}
+                {selectedItems.has(item.id) && (
+                  <div className="absolute -top-1 -right-1 bg-green-500 text-white p-1 rounded-full">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-medium text-gray-900">{item.name}</h3>
+                  <span className="font-medium text-gray-900">Available</span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                  {`${item.article_type} in ${item.color}`}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    {item.article_type}
+                  </span>
+                  <span className="text-xs text-gray-500">{item.store_location || 'Available online'}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons - Same as V1 */}
+            <div className="flex gap-2 mt-4">
+              {/* Thumbs Up */}
+              <button
+                onClick={() => handleFeedback(item, 'like')}
+                className={`flex items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
+                  likedItems.has(item.id) 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Heart className={`h-4 w-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
+              </button>
+              
+              {/* Thumbs Down / Replace */}
+              <button
+                onClick={() => handleDislike(item)}
+                disabled={isReplacingItem === item.id}
+                className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {isReplacingItem === item.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ThumbsDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Try On */}
+              <button
+                onClick={() => handleTryOn(item)}
+                className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              
+              {/* Add to Cart */}
+              <button
+                onClick={() => handleSelectItem(item.id)}
+                className={`flex-1 flex items-center justify-center py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                  selectedItems.has(item.id)
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
+              >
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                {selectedItems.has(item.id) ? 'Added' : 'Add to Cart'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col gap-4">
+        <Button
+          onClick={handleMoreOptions}
+          variant="secondary"
+          fullWidth
+          className="border-gray-300 text-gray-700 hover:bg-gray-50"
+        >
+          <RefreshCw className="h-5 w-5 mr-2" />
+          More Options
+        </Button>
+        
+        <Button
+          onClick={handleNext}
+          fullWidth
+          size="lg"
+          disabled={selectedItems.size === 0}
+          className="bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Continue to Checkout ({selectedItems.size} items)
+          <ChevronRight className="ml-2 h-5 w-5" />
+        </Button>
+      </div>
       
       {/* Debug Panel (Development Only) */}
       {debugInfo && process.env.NODE_ENV === 'development' && (
-        <DebugPanel debugInfo={debugInfo} />
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+          <h3 className="font-medium text-gray-900 mb-2">Debug Info</h3>
+          <pre className="text-xs text-gray-600 overflow-auto">
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
+        </div>
       )}
-      
-      {/* Continue Button */}
-      <ContinueButton 
-        selectedCount={selectedCount}
-        onNext={handleNext}
-        disabled={selectedCount === 0}
-      />
+
+      {/* Virtual Try-On Modal */}
+      {showTryOnModal && tryOnData && (
+        <VirtualTryOnModal
+          isOpen={showTryOnModal}
+          onClose={() => {
+            setShowTryOnModal(false)
+            setTryOnData(null)
+          }}
+          productId={tryOnData.item.id}
+          productName={tryOnData.item.name}
+          productImage={tryOnData.item.image_url}
+          userSelfie={tryOnData.selfieBase64}
+        />
+      )}
     </div>
   )
-}
-
-// Header Component
-interface HeaderProps {
-  totalItems: number
-  categoryCount: number
-  selectedCount: number
-}
-
-const Header: React.FC<HeaderProps> = ({ totalItems, categoryCount, selectedCount }) => (
-  <div className="text-center mb-6">
-    <h1 className="text-3xl font-light text-gray-900 mb-2">
-      Your Personalized Recommendations
-    </h1>
-    <p className="text-gray-600">
-      {totalItems} items found across {categoryCount} categories
-    </p>
-    {selectedCount > 0 && (
-      <p className="text-sm text-blue-600 mt-2">
-        {selectedCount} item{selectedCount > 1 ? 's' : ''} selected
-      </p>
-    )}
-  </div>
-)
-
-// Category Tabs Component
-interface CategoryTabsProps {
-  categories: string[]
-  categoriesData: any
-  selected: string
-  onSelect: (category: string) => void
-}
-
-const CategoryTabs: React.FC<CategoryTabsProps> = ({ 
-  categories, 
-  categoriesData, 
-  selected, 
-  onSelect 
-}) => (
-  <div className="flex flex-wrap gap-2 mb-6">
-    <button
-      onClick={() => onSelect('all')}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-        selected === 'all'
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      All Categories
-    </button>
-    {categories.map(category => (
-      <button
-        key={category}
-        onClick={() => onSelect(category)}
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-          selected === category
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        {category} ({categoriesData[category]?.items.length || 0})
-      </button>
-    ))}
-  </div>
-)
-
-// Items Grid Component
-interface ItemGridProps {
-  items: ProductItem[]
-  selectedItems: Set<string>
-  onToggleItem: (itemId: string) => void
-}
-
-const ItemGrid: React.FC<ItemGridProps> = ({ items, selectedItems, onToggleItem }) => (
-  <div className="grid grid-cols-2 gap-4 mb-6">
-    {items.map(item => (
-      <div
-        key={item.id}
-        onClick={() => onToggleItem(item.id)}
-        className={`relative bg-white rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-          selectedItems.has(item.id)
-            ? 'border-blue-500 ring-2 ring-blue-200'
-            : 'border-gray-200 hover:border-gray-300'
-        }`}
-      >
-        {/* Selection Indicator */}
-        {selectedItems.has(item.id) && (
-          <div className="absolute top-2 right-2 bg-blue-600 rounded-full p-1 z-10">
-            <Check className="h-3 w-3 text-white" />
-          </div>
-        )}
-        
-        {/* Product Image */}
-        <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
-          <img 
-            src={item.image_url} 
-            alt={item.name}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = '/api/placeholder/150/150'
-            }}
-          />
-        </div>
-        
-        {/* Product Info */}
-        <div className="p-3">
-          <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">
-            {item.name}
-          </h3>
-          <p className="text-xs text-gray-500 mb-1">
-            {item.article_type} • {item.color}
-          </p>
-          <p className="text-xs text-green-600 font-medium">
-            Available
-          </p>
-        </div>
-      </div>
-    ))}
-  </div>
-)
-
-// Continue Button Component
-interface ContinueButtonProps {
-  selectedCount: number
-  onNext: () => void
-  disabled: boolean
-}
-
-const ContinueButton: React.FC<ContinueButtonProps> = ({ 
-  selectedCount, 
-  onNext, 
-  disabled 
-}) => (
-  <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
-    <div className="max-w-md mx-auto">
-      <Button
-        onClick={onNext}
-        disabled={disabled}
-        fullWidth
-        className={`${
-          disabled 
-            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
-        } transition-colors`}
-      >
-        {selectedCount > 0 
-          ? `Continue with ${selectedCount} item${selectedCount > 1 ? 's' : ''}`
-          : 'Select items to continue'
-        }
-      </Button>
-    </div>
-  </div>
-)
-
-// Debug Panel Component (Development Only)
-interface DebugPanelProps {
-  debugInfo: any
-}
-
-const DebugPanel: React.FC<DebugPanelProps> = ({ debugInfo }) => (
-  <div className="mt-6 p-4 bg-gray-900 text-white rounded-lg text-xs">
-    <h4 className="font-bold mb-2">🔍 Debug Info</h4>
-    <div className="space-y-1">
-      <div><strong>Selections:</strong> {debugInfo.user_selections.join(', ')}</div>
-      <div><strong>Found:</strong> {debugInfo.categories_found.join(', ')}</div>
-      <div><strong>Missing:</strong> {debugInfo.categories_missing.join(', ')}</div>
-      <div><strong>Total Items:</strong> {debugInfo.total_items}</div>
-      <div><strong>Search Mode:</strong> {debugInfo.search_mode}</div>
-      <div><strong>Processing Time:</strong> {debugInfo.processing_time_ms}ms</div>
-    </div>
-  </div>
-) 
+} 
