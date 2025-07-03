@@ -769,9 +769,9 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           onClick={handleMoreOptions}
           variant="secondary"
           fullWidth
-          className="border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center whitespace-nowrap"
         >
-          <RefreshCw className="h-5 w-5 mr-2" />
+          <RefreshCw className="h-5 w-5 mr-2 flex-shrink-0" />
           More Options
         </Button>
         
@@ -780,10 +780,12 @@ export const Step6OutfitRail: React.FC<Step6OutfitRailProps> = ({ onNext }) => {
           fullWidth
           size="lg"
           disabled={selectedItems.size === 0}
-          className="bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap"
         >
-          Continue to Checkout ({selectedItems.size} items)
-          <ChevronRight className="ml-2 h-5 w-5" />
+          <span className="flex items-center">
+            Continue to Checkout ({selectedItems.size} item{selectedItems.size === 1 ? '' : 's'})
+            <ChevronRight className="ml-2 h-5 w-5 flex-shrink-0" />
+          </span>
         </Button>
       </div>
 
