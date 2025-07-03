@@ -14,13 +14,6 @@ class ProductItem(BaseModel):
     image_url: str = Field(..., description="Product image URL")
     similarity_score: Optional[float] = Field(None, description="Similarity score from vector search")
     store_location: Optional[str] = Field(None, description="Store location")
-    complete_the_look: Optional["CompleteLookSuggestion"] = Field(None, description="Complete the look suggestions")
-
-class CompleteLookSuggestion(BaseModel):
-    needed_categories: List[str] = Field(..., description="Categories needed to complete the look")
-    suggested_items: Dict[str, List[ProductItem]] = Field(..., description="Suggested items by category")
-    confidence_score: float = Field(..., description="Confidence score for the suggestions")
-    style_reasoning: Optional[str] = Field(None, description="Reasoning for the style choices")
 
 class RecommendationResponse(BaseModel):
     recommendations: List[ProductItem] = Field(..., description="List of recommended products")
