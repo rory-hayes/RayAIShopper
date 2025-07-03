@@ -30,6 +30,12 @@ export interface ProductItem {
   image_url: string
   similarity_score: number
   store_location?: string
+  complete_the_look?: {
+    needed_categories: string[]
+    suggested_items: Record<string, ProductItem[]>
+    confidence_score: number
+    style_reasoning?: string
+  }
 }
 
 export interface RecommendationRequest {

@@ -9,6 +9,7 @@ import { LoadingView } from './LoadingView'
 import { ErrorView } from './ErrorView'
 import { EmptyView } from './EmptyView'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
+import { CompleteLookModal } from '../ui/CompleteLookModal'
 
 interface Step6Props {
   onNext: () => void
@@ -44,6 +45,12 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
   const [tryOnData, setTryOnData] = useState<{
     item: ProductItem
     selfieBase64: string
+  } | null>(null)
+  const [showCompleteLookModal, setShowCompleteLookModal] = useState(false)
+  const [completeLookData, setCompleteLookData] = useState<{
+    baseItem: ProductItem
+    suggestions: Record<string, ProductItem[]>
+    styleReasoning?: string
   } | null>(null)
 
   // Handle general feedback (like)
@@ -126,6 +133,47 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
     }
     reader.readAsDataURL(formData.selfieImage)
   }, [formData.selfieImage])
+
+  // Handle complete the look
+  const handleCompleteTheLook = useCallback((item: ProductItem) => {
+    console.log('V2: handleCompleteTheLook called for item', item.name)
+    
+    if (!item.complete_the_look) {
+      console.warn('V2: No complete the look data available for item', item.id)
+      return
+    }
+    
+    const { suggested_items, style_reasoning } = item.complete_the_look
+    
+    if (!suggested_items || Object.keys(suggested_items).length === 0) {
+      console.warn('V2: No suggestions available for item', item.id)
+      return
+    }
+    
+    console.log('V2: Setting up complete look modal with', Object.keys(suggested_items).length, 'categories')
+    
+    setCompleteLookData({
+      baseItem: item,
+      suggestions: suggested_items,
+      styleReasoning: style_reasoning
+    })
+    
+    setShowCompleteLookModal(true)
+  }, [])
+
+  // Handle adding complete outfit to cart
+  const handleAddCompleteOutfit = useCallback((items: ProductItem[]) => {
+    console.log('V2: Adding complete outfit to cart:', items.length, 'items')
+    
+    // Add all items to selected items
+    items.forEach(item => {
+      toggleItemSelection(item.id)
+    })
+    
+    // Close modal
+    setShowCompleteLookModal(false)
+    setCompleteLookData(null)
+  }, [toggleItemSelection])
 
   // Handle item selection for checkout
   const handleSelectItem = useCallback((itemId: string) => {
@@ -339,6 +387,17 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
               >
                 <Eye className="h-4 w-4" />
               </button>
+
+              {/* Complete the Look */}
+              {item.complete_the_look && (
+                <button
+                  onClick={() => handleCompleteTheLook(item)}
+                  className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-gradient-to-r from-pink-100 to-purple-100 text-purple-700 hover:from-pink-200 hover:to-purple-200 transition-colors"
+                  title="Complete the Look"
+                >
+                  <span className="text-sm">👗</span>
+                </button>
+              )}
               
               {/* Add to Cart */}
               <button
@@ -405,6 +464,22 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
           productName={tryOnData.item.name}
           productImage={tryOnData.item.image_url}
           userSelfie={tryOnData.selfieBase64}
+        />
+      )}
+
+      {/* Complete Look Modal */}
+      {showCompleteLookModal && completeLookData && (
+        <CompleteLookModal
+          isOpen={showCompleteLookModal}
+          onClose={() => {
+            setShowCompleteLookModal(false)
+            setCompleteLookData(null)
+          }}
+          baseItem={completeLookData.baseItem}
+          suggestions={completeLookData.suggestions}
+          styleReasoning={completeLookData.styleReasoning}
+          onAddToCart={handleAddCompleteOutfit}
+          onAddSingleItem={(item) => toggleItemSelection(item.id)}
         />
       )}
     </div>
