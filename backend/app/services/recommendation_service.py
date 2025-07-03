@@ -9,6 +9,18 @@ from app.models.responses import ProductItem, RecommendationResponse, Recommenda
 from app.utils.logging import get_logger
 from app.config import settings
 
+# Try to import outfit completion service with fallback
+try:
+    from app.services.outfit_completion_service import OutfitCompletionService
+    OUTFIT_COMPLETION_AVAILABLE = True
+    logger = get_logger(__name__)
+    logger.info("OutfitCompletionService import successful")
+except Exception as e:
+    OUTFIT_COMPLETION_AVAILABLE = False
+    logger = get_logger(__name__)
+    logger.warning(f"OutfitCompletionService import failed: {e}")
+    OutfitCompletionService = None
+
 logger = get_logger(__name__)
 
 class RecommendationService:
@@ -16,14 +28,17 @@ class RecommendationService:
         self.vector_service = VectorSearchService()
         self.openai_service = OpenAIService()
         
-        # TEMPORARILY DISABLED: Initialize outfit completion service with error handling
-        # try:
-        #     self.outfit_completion_service = OutfitCompletionService()
-        #     logger.info("OutfitCompletionService initialized successfully")
-        # except Exception as e:
-        #     logger.warning(f"Failed to initialize OutfitCompletionService: {e}")
-        #     self.outfit_completion_service = None
-        self.outfit_completion_service = None  # Temporarily disabled
+        # Initialize outfit completion service with robust error handling
+        self.outfit_completion_service = None
+        if OUTFIT_COMPLETION_AVAILABLE and OutfitCompletionService is not None:
+            try:
+                self.outfit_completion_service = OutfitCompletionService()
+                logger.info("✅ OutfitCompletionService initialized successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to initialize OutfitCompletionService: {e}")
+                self.outfit_completion_service = None
+        else:
+            logger.info("ℹ️ OutfitCompletionService not available - complete-the-look feature disabled")
             
         self.session_cache: Dict[str, Dict] = {}  # In-memory session storage with TTL
         self.session_ttl = 3600  # 1 hour TTL for sessions
@@ -563,49 +578,62 @@ class RecommendationService:
             )
             result.debug_info.processing_time_ms = int((time.time() - start_time) * 1000)
             
-            # TEMPORARILY DISABLED: Add complete-the-look computation to isolate 500 error
-            # try:
-            #     if self.outfit_completion_service is None:
-            #         logger.info("V2 API: Skipping complete-the-look computation - service not available")
-            #     else:
-            #         completion_start = time.time()
-            #         logger.info("V2 API: Computing complete-the-look suggestions...")
-            #         
-            #         # Pre-compute complete looks for each item using already-loaded data
-            #         items_processed = 0
-            #         for category_name, category_data in result.categories.items():
-            #             for item in category_data.items:
-            #                 try:
-            #                     # Convert CategoryResult items to the format expected by completion service
-            #                     available_items_dict = {}
-            #                     for cat_name, cat_data in result.categories.items():
-            #                         available_items_dict[cat_name] = cat_data.items
-            #                     
-            #                     # Generate complete look for this item
-            #                     complete_look = self.outfit_completion_service.generate_complete_look(
-            #                         base_item=item,
-            #                         available_items=available_items_dict,
-            #                         user_profile=user_profile
-            #                     )
-            #                     
-            #                     # Attach to item (will be None if no suggestions found)
-            #                     item.complete_the_look = complete_look
-            #                     items_processed += 1
-            #                     
-            #                 except Exception as item_completion_error:
-            #                     # Don't fail the entire response for individual item errors
-            #                     logger.warning(f"V2 API: Failed to compute complete-the-look for item {item.id}: {item_completion_error}")
-            #                     item.complete_the_look = None
-            #                     continue
-            #         
-            #         completion_time = int((time.time() - completion_start) * 1000)
-            #         logger.info(f"V2 API: Complete-the-look computed for {items_processed} items in {completion_time}ms")
-            #     
-            # except Exception as completion_error:
-            #     # Graceful degradation - log error but don't fail the request
-            #     logger.warning(f"V2 API: Complete-the-look computation failed: {completion_error}")
-            
-            logger.info("V2 API: Complete-the-look computation temporarily disabled for debugging")
+            # Add complete-the-look computation with robust error handling
+            if self.outfit_completion_service is not None:
+                try:
+                    completion_start = time.time()
+                    logger.info("🎯 V2 API: Computing complete-the-look suggestions...")
+                    
+                    # Pre-compute complete looks for each item using already-loaded data
+                    items_processed = 0
+                    items_with_suggestions = 0
+                    
+                    for category_name, category_data in result.categories.items():
+                        for item in category_data.items:
+                            try:
+                                # Convert CategoryResult items to the format expected by completion service
+                                available_items_dict = {}
+                                for cat_name, cat_data in result.categories.items():
+                                    available_items_dict[cat_name] = cat_data.items
+                                
+                                # Generate complete look for this item
+                                complete_look = self.outfit_completion_service.generate_complete_look(
+                                    base_item=item,
+                                    available_items=available_items_dict,
+                                    user_profile=user_profile
+                                )
+                                
+                                # Attach to item (will be None if no suggestions found)
+                                item.complete_the_look = complete_look
+                                items_processed += 1
+                                
+                                if complete_look is not None:
+                                    items_with_suggestions += 1
+                                
+                            except Exception as item_completion_error:
+                                # Don't fail the entire response for individual item errors
+                                logger.warning(f"⚠️ V2 API: Failed to compute complete-the-look for item {item.id}: {item_completion_error}")
+                                item.complete_the_look = None
+                                items_processed += 1
+                                continue
+                    
+                    completion_time = int((time.time() - completion_start) * 1000)
+                    logger.info(f"✅ V2 API: Complete-the-look computed for {items_processed} items ({items_with_suggestions} with suggestions) in {completion_time}ms")
+                    
+                except Exception as completion_error:
+                    # Graceful degradation - log error but don't fail the request
+                    logger.error(f"❌ V2 API: Complete-the-look computation failed entirely: {completion_error}")
+                    # Ensure all items have complete_the_look set to None
+                    for category_data in result.categories.values():
+                        for item in category_data.items:
+                            if not hasattr(item, 'complete_the_look'):
+                                item.complete_the_look = None
+            else:
+                logger.info("ℹ️ V2 API: Complete-the-look computation skipped - service not available")
+                # Ensure all items have complete_the_look set to None
+                for category_data in result.categories.values():
+                    for item in category_data.items:
+                        item.complete_the_look = None
             
             logger.info(f"V2 API: Generated {result.debug_info.total_items} total items across {len(result.categories)} categories in {result.debug_info.processing_time_ms}ms")
             
