@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
+import { MessageCircle, X, Send, Loader2, Sparkles, Palette, TrendingUp } from 'lucide-react'
 import { useChatContext } from '../../contexts/ChatContext'
 import { useWizard } from '../../contexts/WizardContext'
 import { chatLogger } from '../../utils/logger'
@@ -146,6 +146,17 @@ export const ChatAssistant: React.FC = () => {
     openChat()
   }
 
+  // Handle quick action buttons
+  const handleQuickAction = async (prompt: string) => {
+    await sendMessage(prompt)
+  }
+
+  const handleAccessorize = () => {
+    const userPrompt = formData.shoppingPrompt || 'your outfit'
+    const accessorizePrompt = `Suggest some accessories that would level up my outfit for "${userPrompt}". Consider my style preferences and the items I've selected.`
+    handleQuickAction(accessorizePrompt)
+  }
+
   // Don't render anything if we're not at Step 6 yet
   if (!shouldShowChat) {
     return null
@@ -235,6 +246,38 @@ export const ChatAssistant: React.FC = () => {
             
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Quick Action Buttons */}
+          {currentStep === 6 && (
+            <div className="px-4 py-2 border-t border-gray-100">
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={handleAccessorize}
+                  disabled={isLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs rounded-full hover:from-purple-600 hover:to-pink-600 transition-all duration-200 disabled:opacity-50 shadow-sm"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Accessorize
+                </button>
+                <button
+                  onClick={() => handleQuickAction('How do these colors work together in my outfit?')}
+                  disabled={isLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs rounded-full hover:from-blue-600 hover:to-cyan-600 transition-all duration-200 disabled:opacity-50 shadow-sm"
+                >
+                  <Palette className="h-3 w-3" />
+                  Color Tips
+                </button>
+                <button
+                  onClick={() => handleQuickAction('What styling tips do you have for these pieces?')}
+                  disabled={isLoading}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs rounded-full hover:from-green-600 hover:to-emerald-600 transition-all duration-200 disabled:opacity-50 shadow-sm"
+                >
+                  <TrendingUp className="h-3 w-3" />
+                  Style Tips
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Input */}
           <div className="p-4 border-t border-gray-200 bg-gray-50">

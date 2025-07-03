@@ -46,14 +46,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const [lastWizardStep, setLastWizardStep] = useState<number>(1)
   const [hasAddedStepMessage, setHasAddedStepMessage] = useState<Set<number>>(new Set())
 
-  // Initialize chat with welcome message
+  // Initialize chat with empty messages - we'll add context-specific message when user reaches Step 6
   useEffect(() => {
-    const welcomeMessage: ChatMessage = {
-      role: 'assistant',
-      content: "Hi! I'm Ray, your AI shopping assistant. I'm here to help you find the perfect items throughout your shopping journey. As you go through each step, I'll learn about your preferences and can answer any questions you have!",
-      timestamp: new Date().toISOString()
-    }
-    setMessages([welcomeMessage])
+    // Start with empty messages array - dynamic message will be added based on user's journey
+    setMessages([])
   }, [])
 
   const addMessage = useCallback((message: ChatMessage) => {
@@ -258,7 +254,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       case 5:
         return `Perfect! I'm now analyzing all your preferences${formData.selfieImage ? ' and your selfie' : ''} to curate the perfect recommendations for you.`
       case 6:
-        return `I've found some amazing pieces that match your "${formData.shoppingPrompt}" request and your style preferences! Let me know what you think of these recommendations.`
+        // Combine welcome + recommendations message with user's shopping prompt
+        const shoppingPrompt = formData.shoppingPrompt || 'your request'
+        return `Hi! I'm Ray, your AI shopping assistant and I've found some amazing pieces that match your "${shoppingPrompt}" request and your style preferences! Let me know what you think of these recommendations.`
       case 7:
         if (formData.selectedItems?.length > 0) {
           return `Wonderful! You've selected ${formData.selectedItems.length} item${formData.selectedItems.length > 1 ? 's' : ''} that perfectly match your style. Let's move toward checkout.`
