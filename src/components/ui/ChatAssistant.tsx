@@ -190,7 +190,7 @@ export const ChatAssistant: React.FC = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-80 h-96 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col z-50">
+        <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col z-50">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
             <div className="flex items-center gap-2">
@@ -287,12 +287,12 @@ export const ChatAssistant: React.FC = () => {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about colors, styling, fit, accessories..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm bg-white resize-none overflow-hidden min-h-[40px] max-h-[120px]"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm bg-white resize-none overflow-hidden min-h-[44px] max-h-[120px]"
                 disabled={isLoading}
-                rows={1}
+                rows={2}
                 style={{
                   height: 'auto',
-                  minHeight: '40px'
+                  minHeight: '44px'
                 }}
                 onInput={(e) => {
                   const target = e.target as HTMLTextAreaElement
