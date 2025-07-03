@@ -2,13 +2,25 @@ import React, { useState } from 'react'
 import { useWizard } from '../../contexts/WizardContext'
 import { Button } from '../ui/Button'
 import { Textarea } from '../ui/Textarea'
+import { embeddingService } from '../../services/api'
 
 export const Step1Welcome: React.FC = () => {
   const { formData, updateFormData, nextStep } = useWizard()
   const [prompt, setPrompt] = useState(formData.shoppingPrompt)
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     updateFormData({ shoppingPrompt: prompt })
+    
+    // Trigger embedding generation early for faster searches later
+    try {
+      console.log('🚀 Triggering early embedding generation...')
+      const result = await embeddingService.prepareEmbeddings()
+      console.log('✅ Embedding preparation:', result.message)
+    } catch (error) {
+      console.warn('⚠️ Could not start embedding generation:', error)
+      // Don't block the user flow if this fails
+    }
+    
     nextStep()
   }
 

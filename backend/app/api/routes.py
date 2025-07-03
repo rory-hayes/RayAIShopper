@@ -457,4 +457,133 @@ async def _get_product_by_id(product_id: str):
             usage="Casual",
             image_url=f"{settings.github_images_base_url}/{product_id}.jpg",
             similarity_score=0.95
-        ) 
+        )
+
+@router.post("/prepare-embeddings")
+async def prepare_embeddings(recommendation_service = Depends(get_recommendation_service)):
+    """
+    Trigger embedding generation early in the user flow
+    Call this when user submits their first prompt (Step 1)
+    Returns immediately while embeddings generate in background
+    """
+    try:
+        # Get the vector service instance
+        vector_service = recommendation_service.vector_service
+        
+        # Check if embeddings are already available
+        if not vector_service.is_fallback_mode():
+            return {
+                "status": "ready",
+                "message": "Embeddings already available",
+                "mode": getattr(vector_service, 'mode', 'unknown'),
+                "total_products": vector_service.get_total_products()
+            }
+        
+        # Check if background generation is already running
+        if hasattr(vector_service, '_embedding_task_running'):
+            return {
+                "status": "generating",
+                "message": "Embedding generation already in progress",
+                "total_products": len(vector_service.products_data) if vector_service.products_data else 0
+            }
+        
+        # Start embedding generation in background
+        import asyncio
+        
+        # Mark that we're generating to avoid duplicate tasks
+        vector_service._embedding_task_running = True
+        
+        async def generate_and_mark_complete():
+            try:
+                await vector_service._generate_embeddings_for_all_products()
+                if vector_service.products_with_embeddings:
+                    vector_service.mode = "B"
+                    vector_service.fallback_mode = False
+                    logger.info(f"Early embedding generation complete! Ready for fast searches with {len(vector_service.products_with_embeddings)} products")
+            except Exception as e:
+                logger.error(f"Early embedding generation failed: {e}")
+            finally:
+                # Mark as complete
+                vector_service._embedding_task_running = False
+        
+        # Start the task
+        asyncio.create_task(generate_and_mark_complete())
+        
+        logger.info("Started early embedding generation for faster searches")
+        
+        return {
+            "status": "started",
+            "message": "Embedding generation started in background",
+            "total_products": len(vector_service.products_data) if vector_service.products_data else 0,
+            "estimated_time": "2-3 minutes"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting embedding generation: {e}")
+        return {
+            "status": "error",
+            "message": f"Failed to start embedding generation: {str(e)}"
+        }
+
+@router.get("/embedding-status")
+async def get_embedding_status(recommendation_service = Depends(get_recommendation_service)):
+    """
+    Check the status of embedding generation
+    Frontend can poll this to know when embeddings are ready
+    """
+    try:
+        vector_service = recommendation_service.vector_service
+        
+        # Check current mode
+        if not vector_service.is_fallback_mode():
+            mode = getattr(vector_service, 'mode', 'unknown')
+            total_products = vector_service.get_total_products()
+            
+            if mode == "A":
+                status = "ready_faiss"
+                message = "FAISS index loaded and ready"
+            elif mode == "B":
+                status = "ready_embeddings"
+                message = "Embeddings ready for similarity search"
+            else:
+                status = "ready_other"
+                message = "Vector search ready"
+                
+            return {
+                "status": status,
+                "mode": mode,
+                "message": message,
+                "total_products": total_products,
+                "ready": True
+            }
+        else:
+            # Check if generation is in progress
+            is_generating = getattr(vector_service, '_embedding_task_running', False)
+            products_with_embeddings = len(vector_service.products_with_embeddings) if vector_service.products_with_embeddings else 0
+            total_products = len(vector_service.products_data) if vector_service.products_data else 0
+            
+            if is_generating:
+                return {
+                    "status": "generating",
+                    "mode": "C",
+                    "message": f"Generating embeddings... ({products_with_embeddings}/{total_products} complete)",
+                    "total_products": total_products,
+                    "progress": products_with_embeddings / total_products if total_products > 0 else 0,
+                    "ready": False
+                }
+            else:
+                return {
+                    "status": "fallback",
+                    "mode": "C",
+                    "message": "Using keyword search (embeddings not generated)",
+                    "total_products": total_products,
+                    "ready": False
+                }
+                
+    except Exception as e:
+        logger.error(f"Error checking embedding status: {e}")
+        return {
+            "status": "error",
+            "message": f"Error checking status: {str(e)}",
+            "ready": False
+        } 

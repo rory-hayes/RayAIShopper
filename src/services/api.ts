@@ -135,6 +135,17 @@ export interface EnhancedTryonResponse {
   success: boolean
 }
 
+// Embedding management endpoints
+export interface EmbeddingStatus {
+  status: 'ready_faiss' | 'ready_embeddings' | 'ready_other' | 'generating' | 'fallback' | 'error' | 'started'
+  mode?: string
+  message: string
+  total_products?: number
+  progress?: number
+  ready: boolean
+  estimated_time?: string
+}
+
 class ApiService {
   private baseURL: string
   private timeout: number
@@ -339,4 +350,44 @@ export const virtualTryOn = async (request: EnhancedTryonRequest): Promise<Enhan
   }
 
   return response.json();
-}; 
+};
+
+export const embeddingService = {
+  /**
+   * Trigger embedding generation early in the user flow
+   * Call this when user submits their first prompt (Step 1)
+   */
+  async prepareEmbeddings(): Promise<EmbeddingStatus> {
+    const response = await fetch(`${API_CONFIG.baseURL}/prepare-embeddings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to prepare embeddings: ${response.statusText}`)
+    }
+    
+    return response.json()
+  },
+
+  /**
+   * Check the status of embedding generation
+   * Frontend can poll this to know when embeddings are ready
+   */
+  async getEmbeddingStatus(): Promise<EmbeddingStatus> {
+    const response = await fetch(`${API_CONFIG.baseURL}/embedding-status`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get embedding status: ${response.statusText}`)
+    }
+    
+    return response.json()
+  }
+} 
