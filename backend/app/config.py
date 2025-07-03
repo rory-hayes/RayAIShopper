@@ -32,7 +32,13 @@ class Settings(BaseSettings):
     
     # API Configuration
     api_prefix: str = "/api/v1"
-    cors_origins: list = ["*"]  # Update for production
+    cors_origins: list = [
+        "https://ray-ai-shopper-frontend.vercel.app",  # Production frontend
+        "http://localhost:3000",  # Development frontend
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "*"  # Fallback - allow all (for development)
+    ]
     
     class Config:
         env_file = ".env"
