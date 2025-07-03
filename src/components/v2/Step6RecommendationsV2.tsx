@@ -251,7 +251,7 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                {category} ({categories[category]?.items.length || 0})
+                {category}
               </button>
             ))}
           </div>
