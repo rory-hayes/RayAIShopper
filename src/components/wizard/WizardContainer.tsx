@@ -65,13 +65,6 @@ export const WizardContainer: React.FC = () => {
         />
       </div>
       
-      {/* V2 Feature Indicator (Always show when V2 is active) */}
-      {useV2Recommendations && (
-        <div className="bg-blue-600 text-white text-center py-1 text-xs">
-          🚀 Using V2 Recommendations API
-        </div>
-      )}
-      
       {/* Step content */}
       <div className="transition-all duration-300">
         {renderStep()}
