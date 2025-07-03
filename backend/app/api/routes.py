@@ -586,4 +586,24 @@ async def get_embedding_status(recommendation_service = Depends(get_recommendati
             "status": "error",
             "message": f"Error checking status: {str(e)}",
             "ready": False
-        } 
+        }
+
+@router.get("/test")
+async def test_endpoint():
+    """Simple test endpoint to verify API is working"""
+    return {
+        "status": "ok",
+        "message": "API is working",
+        "timestamp": str(uuid.uuid4())
+    }
+
+@router.post("/test-v2")
+async def test_v2_endpoint(request: dict):
+    """Test V2 endpoint structure without complex logic"""
+    return {
+        "success": True,
+        "message": "V2 API structure is working",
+        "received_data": request,
+        "categories": {},
+        "session_id": str(uuid.uuid4())
+    } 
