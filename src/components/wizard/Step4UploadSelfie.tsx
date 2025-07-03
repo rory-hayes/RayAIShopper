@@ -28,11 +28,19 @@ export const Step4UploadSelfie: React.FC = () => {
     nextStep()
   }
 
-  const triggerCamera = () => {
+  const triggerCamera = (event?: React.MouseEvent) => {
+    // Prevent event bubbling to avoid double triggers
+    if (event) {
+      event.stopPropagation()
+    }
     cameraInputRef.current?.click()
   }
 
-  const triggerGallery = () => {
+  const triggerGallery = (event?: React.MouseEvent) => {
+    // Prevent event bubbling to avoid double triggers
+    if (event) {
+      event.stopPropagation()
+    }
     fileInputRef.current?.click()
   }
 
@@ -75,13 +83,13 @@ export const Step4UploadSelfie: React.FC = () => {
             />
             
             <div className="flex gap-2 justify-center">
-              <Button variant="secondary" onClick={triggerCamera}>
-                <Camera className="h-4 w-4 mr-2" />
-                Take Selfie
-              </Button>
-              <Button variant="secondary" onClick={triggerGallery}>
+              <Button variant="secondary" onClick={(e) => triggerGallery(e)}>
                 <Image className="h-4 w-4 mr-2" />
-                Choose Photo
+                Choose from Gallery
+              </Button>
+              <Button variant="secondary" onClick={(e) => triggerCamera(e)}>
+                <Camera className="h-4 w-4 mr-2" />
+                Take Photo
               </Button>
             </div>
           </div>
