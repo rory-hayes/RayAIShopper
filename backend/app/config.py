@@ -34,13 +34,6 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     cors_origins: list = ["*"]  # Update for production
     
-    # Feature flags
-    enable_complete_the_look: bool = Field(
-        default=False,  # Start disabled for safety
-        env="ENABLE_COMPLETE_THE_LOOK",
-        description="Enable complete the look feature"
-    )
-    
     class Config:
         env_file = ".env"
         case_sensitive = False

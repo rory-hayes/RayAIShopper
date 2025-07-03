@@ -554,16 +554,16 @@ class RecommendationService:
             )
             result.debug_info.processing_time_ms = int((time.time() - start_time) * 1000)
             
-            # NEW: Add complete-the-look computation (only if enabled)
-            if settings.enable_complete_the_look:
-                try:
-                    completion_start = time.time()
-                    logger.info("V2 API: Computing complete-the-look suggestions...")
-                    
-                    # Pre-compute complete looks for each item using already-loaded data
-                    items_processed = 0
-                    for category_name, category_data in result.categories.items():
-                        for item in category_data.items:
+            # Add complete-the-look computation (always enabled)
+            try:
+                completion_start = time.time()
+                logger.info("V2 API: Computing complete-the-look suggestions...")
+                
+                # Pre-compute complete looks for each item using already-loaded data
+                items_processed = 0
+                for category_name, category_data in result.categories.items():
+                    for item in category_data.items:
+                        try:
                             # Convert CategoryResult items to the format expected by completion service
                             available_items_dict = {}
                             for cat_name, cat_data in result.categories.items():
@@ -579,13 +579,19 @@ class RecommendationService:
                             # Attach to item (will be None if no suggestions found)
                             item.complete_the_look = complete_look
                             items_processed += 1
-                    
-                    completion_time = int((time.time() - completion_start) * 1000)
-                    logger.info(f"V2 API: Complete-the-look computed for {items_processed} items in {completion_time}ms")
-                    
-                except Exception as completion_error:
-                    # Graceful degradation - log error but don't fail the request
-                    logger.warning(f"V2 API: Complete-the-look computation failed: {completion_error}")
+                            
+                        except Exception as item_completion_error:
+                            # Don't fail the entire response for individual item errors
+                            logger.warning(f"V2 API: Failed to compute complete-the-look for item {item.id}: {item_completion_error}")
+                            item.complete_the_look = None
+                            continue
+                
+                completion_time = int((time.time() - completion_start) * 1000)
+                logger.info(f"V2 API: Complete-the-look computed for {items_processed} items in {completion_time}ms")
+                
+            except Exception as completion_error:
+                # Graceful degradation - log error but don't fail the request
+                logger.warning(f"V2 API: Complete-the-look computation failed: {completion_error}")
             
             logger.info(f"V2 API: Generated {result.debug_info.total_items} total items across {len(result.categories)} categories in {result.debug_info.processing_time_ms}ms")
             

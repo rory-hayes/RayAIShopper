@@ -137,6 +137,7 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
   // Handle complete the look
   const handleCompleteTheLook = useCallback((item: ProductItem) => {
     console.log('V2: handleCompleteTheLook called for item', item.name)
+    console.log('V2: Item complete_the_look data:', item.complete_the_look)
     
     if (!item.complete_the_look) {
       console.warn('V2: No complete the look data available for item', item.id)
@@ -272,6 +273,23 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
           <p className="text-sm text-blue-600 mt-2">
             {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
           </p>
+        )}
+        
+        {/* DEBUG: Log complete_the_look data */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-2">
+            {(() => {
+              const itemsWithCompleteTheLook = displayedItems.filter(item => item.complete_the_look)
+              console.log('🔍 DEBUG: Items with complete_the_look:', itemsWithCompleteTheLook.length, 'out of', displayedItems.length)
+              displayedItems.forEach((item, index) => {
+                console.log(`🔍 DEBUG: Item ${index + 1} (${item.name}):`, {
+                  hasCompleteTheLook: !!item.complete_the_look,
+                  completeTheLookData: item.complete_the_look
+                })
+              })
+              return null
+            })()}
+          </div>
         )}
       </div>
       
