@@ -3,7 +3,7 @@ import time
 from typing import List, Dict, Any, Optional
 from app.services.vector_service import VectorSearchService
 from app.services.openai_service import OpenAIService
-from app.services.completion_service import CompletionService
+# from app.services.completion_service import CompletionService  # Temporarily disabled
 from app.models.requests import UserProfile, RecommendationRequest, FilterOptions
 from app.models.responses import ProductItem, RecommendationResponse, RecommendationResponseV2, CategoryResult, DebugInfo
 from app.utils.logging import get_logger
@@ -15,7 +15,7 @@ class RecommendationService:
     def __init__(self):
         self.vector_service = VectorSearchService()
         self.openai_service = OpenAIService()
-        self.completion_service = CompletionService()
+        # self.completion_service = CompletionService()  # Temporarily disabled
         self.session_cache: Dict[str, Dict] = {}  # In-memory session storage with TTL
         self.session_ttl = 3600  # 1 hour TTL for sessions
         self.last_cleanup = time.time()
@@ -555,7 +555,9 @@ class RecommendationService:
             
             # NEW: Generate complete looks for all items after all categories are loaded
             try:
-                await self._add_complete_looks(result, user_profile)
+                # Temporarily disabled to fix backend initialization
+                # await self._add_complete_looks(result, user_profile)
+                logger.info("V2 API: Complete look generation temporarily disabled")
             except Exception as complete_look_error:
                 logger.warning(f"V2 API: Complete look generation failed (non-blocking): {complete_look_error}")
                 # Don't fail the entire request if complete looks fail
