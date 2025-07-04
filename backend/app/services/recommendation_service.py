@@ -3,6 +3,7 @@ import time
 from typing import List, Dict, Any, Optional
 from app.services.vector_service import VectorSearchService
 from app.services.openai_service import OpenAIService
+from app.services.completion_service import CompletionService
 from app.models.requests import UserProfile, RecommendationRequest, FilterOptions
 from app.models.responses import ProductItem, RecommendationResponse, RecommendationResponseV2, CategoryResult, DebugInfo
 from app.utils.logging import get_logger
@@ -14,6 +15,7 @@ class RecommendationService:
     def __init__(self):
         self.vector_service = VectorSearchService()
         self.openai_service = OpenAIService()
+        self.completion_service = CompletionService()
         self.session_cache: Dict[str, Dict] = {}  # In-memory session storage with TTL
         self.session_ttl = 3600  # 1 hour TTL for sessions
         self.last_cleanup = time.time()
@@ -550,6 +552,10 @@ class RecommendationService:
             result.debug_info.total_items = sum(
                 len(cat.items) for cat in result.categories.values()
             )
+            
+            # NEW: Generate complete looks for all items after all categories are loaded
+            await self._add_complete_looks(result, user_profile)
+            
             result.debug_info.processing_time_ms = int((time.time() - start_time) * 1000)
             
             logger.info(f"V2 API: Generated {result.debug_info.total_items} total items across {len(result.categories)} categories in {result.debug_info.processing_time_ms}ms")
@@ -611,4 +617,43 @@ class RecommendationService:
             'Heels': ['Heels'],
             'Flats': ['Flats']
         }
-        return mapping.get(user_selection, [user_selection]) 
+        return mapping.get(user_selection, [user_selection])
+
+    async def _add_complete_looks(self, result: RecommendationResponseV2, user_profile: UserProfile) -> None:
+        """
+        Generate complete looks for all items after all categories are loaded
+        """
+        try:
+            completion_start = time.time()
+            logger.info("V2 API: Starting complete look generation...")
+            
+            # Create a dictionary of all items by category for the completion service
+            all_items_by_category = {
+                category_name: category_data.items 
+                for category_name, category_data in result.categories.items()
+            }
+            
+            complete_looks_generated = 0
+            
+            # Generate complete looks for each item
+            for category_name, category_data in result.categories.items():
+                for item in category_data.items:
+                    # Generate complete look using CompletionService
+                    complete_look = self.completion_service.generate_complete_look(
+                        base_item=item,
+                        all_categories=all_items_by_category,
+                        user_profile=user_profile
+                    )
+                    
+                    # Only assign if we got a valid complete look
+                    if complete_look:
+                        item.complete_the_look = complete_look
+                        complete_looks_generated += 1
+            
+            completion_time = int((time.time() - completion_start) * 1000)
+            logger.info(f"V2 API: Generated {complete_looks_generated} complete looks in {completion_time}ms")
+            
+        except Exception as e:
+            logger.error(f"V2 API: Error generating complete looks: {e}")
+            # Don't fail the entire request if complete looks fail
+    

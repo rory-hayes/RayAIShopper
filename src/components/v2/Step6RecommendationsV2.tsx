@@ -9,6 +9,7 @@ import { LoadingView } from './LoadingView'
 import { ErrorView } from './ErrorView'
 import { EmptyView } from './EmptyView'
 import { VirtualTryOnModal } from '../ui/VirtualTryOnModal'
+import { CompleteTheLookModal } from '../ui/CompleteTheLookModal'
 
 interface Step6Props {
   onNext: () => void
@@ -45,6 +46,12 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
     item: ProductItem
     selfieBase64: string
   } | null>(null)
+  
+  // NEW: Complete the Look modal state
+  const [completeTheLookModal, setCompleteTheLookModal] = useState<{
+    isOpen: boolean
+    baseItem: ProductItem | null
+  }>({ isOpen: false, baseItem: null })
 
   // Handle general feedback (like)
   const handleFeedback = useCallback(async (item: ProductItem, action: 'like' | 'dislike') => {
@@ -59,6 +66,38 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
       console.error('V2: Error handling feedback', error)
     }
   }, [])
+
+  // NEW: Handle complete the look
+  const handleCompleteTheLook = useCallback((item: ProductItem) => {
+    console.log('V2: Complete the look for item', item.name, 'Complete look data:', item.complete_the_look)
+    
+    if (item.complete_the_look && Object.keys(item.complete_the_look.suggested_items).length > 0) {
+      setCompleteTheLookModal({
+        isOpen: true,
+        baseItem: item
+      })
+    } else {
+      console.log('V2: No complete the look data available for this item')
+    }
+  }, [])
+
+  // NEW: Handle adding items from complete the look
+  const handleCompleteTheLookAddToCart = useCallback((items: ProductItem[]) => {
+    console.log('V2: Adding complete look items to cart:', items)
+    items.forEach(item => {
+      if (!selectedItems.has(item.id)) {
+        toggleItemSelection(item.id)
+      }
+    })
+  }, [selectedItems, toggleItemSelection])
+
+  // NEW: Handle adding individual item from complete the look
+  const handleCompleteTheLookAddItem = useCallback((item: ProductItem) => {
+    console.log('V2: Adding individual item from complete the look:', item.name)
+    if (!selectedItems.has(item.id)) {
+      toggleItemSelection(item.id)
+    }
+  }, [selectedItems, toggleItemSelection])
 
   // Handle dislike with INSTANT item replacement from reserves
   const handleDislike = useCallback(async (item: ProductItem) => {
@@ -339,6 +378,16 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
               >
                 <Eye className="h-4 w-4" />
               </button>
+
+              {/* Complete the Look - Only show if data exists */}
+              {item.complete_the_look && Object.keys(item.complete_the_look.suggested_items).length > 0 && (
+                <button
+                  onClick={() => handleCompleteTheLook(item)}
+                  className="flex items-center justify-center p-2 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 hover:from-indigo-200 hover:to-purple-200 transition-colors"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </button>
+              )}
               
               {/* Add to Cart */}
               <button
@@ -405,6 +454,20 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
           productName={tryOnData.item.name}
           productImage={tryOnData.item.image_url}
           userSelfie={tryOnData.selfieBase64}
+        />
+      )}
+
+      {/* Complete the Look Modal */}
+      {completeTheLookModal.isOpen && completeTheLookModal.baseItem && completeTheLookModal.baseItem.complete_the_look && (
+        <CompleteTheLookModal
+          isOpen={completeTheLookModal.isOpen}
+          onClose={() => {
+            setCompleteTheLookModal({ isOpen: false, baseItem: null })
+          }}
+          baseItem={completeTheLookModal.baseItem}
+          suggestions={completeTheLookModal.baseItem.complete_the_look}
+          onAddToCart={handleCompleteTheLookAddToCart}
+          onAddItem={handleCompleteTheLookAddItem}
         />
       )}
     </div>

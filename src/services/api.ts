@@ -17,6 +17,12 @@ export interface UserProfile {
   body_type?: string
 }
 
+export interface CompleteTheLookSuggestion {
+  needed_categories: string[]
+  suggested_items: Record<string, ProductItem[]>
+  style_rationale?: string
+}
+
 export interface ProductItem {
   id: string
   name: string
@@ -30,6 +36,7 @@ export interface ProductItem {
   image_url: string
   similarity_score: number
   store_location?: string
+  complete_the_look?: CompleteTheLookSuggestion
 }
 
 export interface RecommendationRequest {
