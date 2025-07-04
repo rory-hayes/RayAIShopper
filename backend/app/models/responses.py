@@ -1,11 +1,6 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
-class CompleteTheLookSuggestion(BaseModel):
-    needed_categories: List[str] = Field(..., description="Categories needed to complete the look")
-    suggested_items: Dict[str, List["ProductItem"]] = Field(..., description="Suggested items by category")
-    style_rationale: Optional[str] = Field(None, description="Why these items work together")
-
 class ProductItem(BaseModel):
     id: str = Field(..., description="Product ID")
     name: str = Field(..., description="Product display name")
@@ -19,7 +14,15 @@ class ProductItem(BaseModel):
     image_url: str = Field(..., description="Product image URL")
     similarity_score: Optional[float] = Field(None, description="Similarity score from vector search")
     store_location: Optional[str] = Field(None, description="Store location")
-    complete_the_look: Optional[CompleteTheLookSuggestion] = Field(None, description="Pre-computed complete look suggestions")
+    complete_the_look: Optional["CompleteTheLookSuggestion"] = Field(None, description="Pre-computed complete look suggestions")
+
+class CompleteTheLookSuggestion(BaseModel):
+    needed_categories: List[str] = Field(..., description="Categories needed to complete the look")
+    suggested_items: Dict[str, List[ProductItem]] = Field(..., description="Suggested items by category")
+    style_rationale: Optional[str] = Field(None, description="Why these items work together")
+
+# Update the ProductItem model to resolve the forward reference
+ProductItem.model_rebuild()
 
 class RecommendationResponse(BaseModel):
     recommendations: List[ProductItem] = Field(..., description="List of recommended products")

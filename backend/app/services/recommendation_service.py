@@ -554,7 +554,11 @@ class RecommendationService:
             )
             
             # NEW: Generate complete looks for all items after all categories are loaded
-            await self._add_complete_looks(result, user_profile)
+            try:
+                await self._add_complete_looks(result, user_profile)
+            except Exception as complete_look_error:
+                logger.warning(f"V2 API: Complete look generation failed (non-blocking): {complete_look_error}")
+                # Don't fail the entire request if complete looks fail
             
             result.debug_info.processing_time_ms = int((time.time() - start_time) * 1000)
             

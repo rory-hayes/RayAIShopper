@@ -64,6 +64,15 @@ class CompletionService:
         start_time = time.time()
         
         try:
+            # Validate inputs
+            if not base_item or not hasattr(base_item, 'article_type'):
+                logger.debug(f"Invalid base_item provided: {base_item}")
+                return None
+            
+            if not all_categories:
+                logger.debug("No categories provided for complete look generation")
+                return None
+            
             # Get needed categories for this item type
             needed_categories = self.completion_rules.get(base_item.article_type, [])
             
