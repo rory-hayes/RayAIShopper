@@ -1,6 +1,6 @@
 import time
 from typing import List, Dict, Optional, Tuple
-from app.models.responses import ProductItem, CompleteTheLookSuggestion
+from app.models.responses import ProductItem, ProductItemSummary, CompleteTheLookSuggestion
 from app.models.requests import UserProfile
 from app.utils.logging import get_logger
 
@@ -97,7 +97,19 @@ class CompletionService:
                     )
                     
                     if compatible_items:
-                        suggested_items[category] = compatible_items[:self.max_suggestions_per_category]
+                        # Convert ProductItem objects to ProductItemSummary to avoid circular references
+                        summary_items = [
+                            ProductItemSummary(
+                                id=item.id,
+                                name=item.name,
+                                category=item.category,
+                                article_type=item.article_type,
+                                color=item.color,
+                                image_url=item.image_url,
+                                similarity_score=item.similarity_score
+                            ) for item in compatible_items[:self.max_suggestions_per_category]
+                        ]
+                        suggested_items[category] = summary_items
             
             # Only return suggestion if we have at least one complete category
             if suggested_items:

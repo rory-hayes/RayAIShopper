@@ -17,9 +17,19 @@ export interface UserProfile {
   body_type?: string
 }
 
+export interface ProductItemSummary {
+  id: string
+  name: string
+  category: string
+  article_type: string
+  color: string
+  image_url: string
+  similarity_score?: number
+}
+
 export interface CompleteTheLookSuggestion {
   needed_categories: string[]
-  suggested_items: Record<string, ProductItem[]>
+  suggested_items: Record<string, ProductItemSummary[]>
   style_rationale?: string
 }
 

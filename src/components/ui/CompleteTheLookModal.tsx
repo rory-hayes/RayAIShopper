@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { X, ShoppingBag, Sparkles, Plus } from 'lucide-react'
 import { Button } from './Button'
-import { ProductItem, CompleteTheLookSuggestion } from '../../services/api'
+import { ProductItem, ProductItemSummary, CompleteTheLookSuggestion } from '../../services/api'
 
 interface CompleteTheLookModalProps {
   isOpen: boolean
@@ -24,7 +24,7 @@ export const CompleteTheLookModal: React.FC<CompleteTheLookModalProps> = ({
 
   if (!isOpen) return null
 
-  const handleItemToggle = (item: ProductItem) => {
+  const handleItemToggle = (item: ProductItemSummary) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev)
       if (newSet.has(item.id)) {
@@ -36,17 +36,51 @@ export const CompleteTheLookModal: React.FC<CompleteTheLookModalProps> = ({
     })
   }
 
-  const handleAddAllToCart = () => {
-    const allSuggestedItems = Object.values(suggestions.suggested_items).flat()
-    const itemsToAdd = [baseItem, ...allSuggestedItems].filter(item => 
-      selectedItems.has(item.id)
-    )
-    onAddToCart(itemsToAdd)
+  const handleAddToCart = () => {
+    const allItems = Object.values(suggestions.suggested_items).flat()
+    const selectedSuggestions = allItems.filter(item => selectedItems.has(item.id))
+    
+    // Convert ProductItemSummary to ProductItem format
+    const convertedItems: ProductItem[] = [
+      baseItem, // Always include the base item
+      ...selectedSuggestions.map(summary => ({
+        id: summary.id,
+        name: summary.name,
+        category: summary.category,
+        subcategory: summary.category, // Use category as subcategory
+        article_type: summary.article_type,
+        color: summary.color,
+        gender: baseItem.gender, // Inherit gender from base item
+        season: undefined,
+        usage: 'General', // Default usage
+        image_url: summary.image_url,
+        similarity_score: summary.similarity_score ?? 0.8, // Provide default value
+        store_location: undefined
+      } as ProductItem))
+    ]
+    
+    onAddToCart(convertedItems)
     onClose()
   }
 
-  const handleAddIndividualItem = (item: ProductItem) => {
-    onAddItem(item)
+  const handleAddIndividualItem = (item: ProductItemSummary) => {
+    // Convert ProductItemSummary to ProductItem format
+    const convertedItem: ProductItem = {
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      subcategory: item.category,
+      article_type: item.article_type,
+      color: item.color,
+      gender: baseItem.gender,
+      season: undefined,
+      usage: 'General',
+      image_url: item.image_url,
+      similarity_score: item.similarity_score ?? 0.8, // Provide default value
+      store_location: undefined
+    }
+    
+    onAddItem(convertedItem)
   }
 
   return (
@@ -179,7 +213,7 @@ export const CompleteTheLookModal: React.FC<CompleteTheLookModalProps> = ({
                 Cancel
               </Button>
               <Button
-                onClick={handleAddAllToCart}
+                onClick={handleAddToCart}
                 disabled={selectedItems.size === 0}
                 className="px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
