@@ -3,7 +3,6 @@ import time
 from typing import List, Dict, Any, Optional
 from app.services.vector_service import VectorSearchService
 from app.services.openai_service import OpenAIService
-# from app.services.completion_service import CompletionService  # Temporarily disabled
 from app.models.requests import UserProfile, RecommendationRequest, FilterOptions
 from app.models.responses import ProductItem, RecommendationResponse, RecommendationResponseV2, CategoryResult, DebugInfo
 from app.utils.logging import get_logger
@@ -15,7 +14,17 @@ class RecommendationService:
     def __init__(self):
         self.vector_service = VectorSearchService()
         self.openai_service = OpenAIService()
-        # self.completion_service = CompletionService()  # Temporarily disabled
+        
+        # Initialize CompletionService with error handling
+        self.completion_service = None
+        try:
+            from app.services.completion_service import CompletionService
+            self.completion_service = CompletionService()
+            logger.info("✅ CompletionService initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ CompletionService initialization failed: {e}")
+            logger.warning("Complete the Look feature will be disabled")
+        
         self.session_cache: Dict[str, Dict] = {}  # In-memory session storage with TTL
         self.session_ttl = 3600  # 1 hour TTL for sessions
         self.last_cleanup = time.time()
@@ -555,9 +564,7 @@ class RecommendationService:
             
             # NEW: Generate complete looks for all items after all categories are loaded
             try:
-                # Temporarily disabled to fix backend initialization
-                # await self._add_complete_looks(result, user_profile)
-                logger.info("V2 API: Complete look generation temporarily disabled")
+                await self._add_complete_looks(result, user_profile)
             except Exception as complete_look_error:
                 logger.warning(f"V2 API: Complete look generation failed (non-blocking): {complete_look_error}")
                 # Don't fail the entire request if complete looks fail
@@ -630,6 +637,10 @@ class RecommendationService:
         Generate complete looks for all items after all categories are loaded
         """
         try:
+            if self.completion_service is None:
+                logger.warning("V2 API: Cannot generate complete looks - CompletionService not available")
+                return
+            
             completion_start = time.time()
             logger.info("V2 API: Starting complete look generation...")
             
