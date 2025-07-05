@@ -180,12 +180,48 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
       
       console.log('✅ V2 Component: Proceeding with selected items:', userSelectedItems)
       
+      // Generate mock pricing for demo purposes
+      const generateMockPrice = (item: ProductItem): number => {
+        // Base price ranges by article type
+        const priceRanges: { [key: string]: [number, number] } = {
+          'Shirts': [45, 85],
+          'Tshirts': [40, 70],
+          'Jeans': [55, 120],
+          'Trousers': [60, 110],
+          'Casual Shoes': [65, 120],
+          'Formal Shoes': [75, 120],
+          'Sports Shoes': [70, 115],
+          'Sandals': [40, 80],
+          'Jackets': [80, 120],
+          'Sweaters': [50, 95],
+          'Shorts': [40, 75]
+        }
+        
+        const [min, max] = priceRanges[item.article_type] || [40, 120]
+        
+        // Add slight brand premium based on name quality
+        let brandMultiplier = 1.0
+        const itemName = item.name.toLowerCase()
+        if (itemName.includes('premium') || itemName.includes('luxury')) {
+          brandMultiplier = 1.2
+        } else if (itemName.includes('basic') || itemName.includes('essential')) {
+          brandMultiplier = 0.9
+        }
+        
+        // Generate price with some randomization
+        const basePrice = Math.floor(Math.random() * (max - min) + min)
+        const finalPrice = Math.floor(basePrice * brandMultiplier)
+        
+        // Ensure it stays within our range
+        return Math.max(40, Math.min(120, finalPrice))
+      }
+      
       // Convert ProductItem to RecommendationItem format for compatibility
       const formattedItems = userSelectedItems.map(item => ({
         id: item.id,
         name: item.name,
         category: item.category || item.article_type || 'Unknown',
-        price: 0, // ProductItem doesn't have price, set default
+        price: generateMockPrice(item), // Generate realistic mock pricing
         image: item.image_url,
         description: `${item.article_type} in ${item.color}`, // Generate description from available fields
         inStock: true,
