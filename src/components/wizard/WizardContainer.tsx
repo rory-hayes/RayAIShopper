@@ -13,8 +13,14 @@ import { Step8Summary } from './Step8Summary'
 export const WizardContainer: React.FC = () => {
   const { currentStep, nextStep } = useWizard()
   
-  // Feature flag for V2 recommendations
-  const envFlag = process.env.REACT_APP_USE_RECOMMENDATIONS_V2 === 'true'
+  // Feature flag for V2 recommendations - use import.meta.env for Vite
+  const envFlag = import.meta.env.VITE_USE_RECOMMENDATIONS_V2 === 'true'
+  
+  // Enable V2 by default for testing if not explicitly set
+  if (localStorage.getItem('useRecommendationsV2') === null) {
+    localStorage.setItem('useRecommendationsV2', 'true')
+  }
+  
   const localStorageFlag = localStorage.getItem('useRecommendationsV2') === 'true'
   const urlFlag = new URLSearchParams(window.location.search).get('v2') === 'true'
   const useV2Recommendations = envFlag || localStorageFlag || urlFlag
@@ -26,7 +32,7 @@ export const WizardContainer: React.FC = () => {
     urlFlag,
     useV2Recommendations,
     currentStep,
-    nodeEnv: process.env.NODE_ENV
+    nodeEnv: import.meta.env.MODE
   })
   
   const renderStep = () => {

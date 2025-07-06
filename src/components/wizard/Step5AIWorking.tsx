@@ -11,7 +11,7 @@ export const Step5AIWorking: React.FC = () => {
   const [hasProcessed, setHasProcessed] = useState(false)
 
   // Check if V2 is enabled to avoid dual API calls
-  const envFlag = process.env.REACT_APP_USE_RECOMMENDATIONS_V2 === 'true'
+  const envFlag = import.meta.env.VITE_USE_RECOMMENDATIONS_V2 === 'true'
   const localStorageFlag = localStorage.getItem('useRecommendationsV2') === 'true'
   const urlFlag = new URLSearchParams(window.location.search).get('v2') === 'true'
   const useV2Recommendations = envFlag || localStorageFlag || urlFlag

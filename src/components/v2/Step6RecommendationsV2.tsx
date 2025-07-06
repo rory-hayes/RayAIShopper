@@ -182,10 +182,17 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
       
       // Generate mock pricing for demo purposes
       const generateMockPrice = (item: ProductItem): number => {
+        console.log('🔍 Generating price for item:', {
+          id: item.id,
+          name: item.name,
+          article_type: item.article_type
+        })
+        
         // Base price ranges by article type
         const priceRanges: { [key: string]: [number, number] } = {
           'Shirts': [45, 85],
           'Tshirts': [40, 70],
+          'T-Shirts': [40, 70], // Add alternative spelling
           'Jeans': [55, 120],
           'Trousers': [60, 110],
           'Casual Shoes': [65, 120],
@@ -194,10 +201,18 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
           'Sandals': [40, 80],
           'Jackets': [80, 120],
           'Sweaters': [50, 95],
-          'Shorts': [40, 75]
+          'Shorts': [40, 75],
+          'Shoes': [60, 120], // Generic shoes
+          'Tops': [35, 75],
+          'Dresses': [60, 140],
+          'Skirts': [45, 85],
+          'Leggings': [30, 60],
+          'Heels': [65, 130],
+          'Flats': [40, 90]
         }
         
         const [min, max] = priceRanges[item.article_type] || [40, 120]
+        console.log('🔍 Price range for', item.article_type, ':', [min, max])
         
         // Add slight brand premium based on name quality
         let brandMultiplier = 1.0
@@ -213,7 +228,10 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
         const finalPrice = Math.floor(basePrice * brandMultiplier)
         
         // Ensure it stays within our range
-        return Math.max(40, Math.min(120, finalPrice))
+        const resultPrice = Math.max(40, Math.min(120, finalPrice))
+        console.log('🔍 Generated price:', resultPrice, 'for', item.name)
+        
+        return resultPrice
       }
       
       // Convert ProductItem to RecommendationItem format for compatibility
@@ -469,7 +487,7 @@ export const Step6RecommendationsV2: React.FC<Step6Props> = ({ onNext }) => {
       </div>
       
       {/* Debug Panel (Development Only) */}
-      {debugInfo && process.env.NODE_ENV === 'development' && (
+      {debugInfo && import.meta.env.MODE === 'development' && (
         <div className="mt-8 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-900 mb-2">Debug Info</h3>
           <pre className="text-xs text-gray-600 overflow-auto">
